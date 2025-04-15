@@ -1,0 +1,187 @@
+<!-- Menu de navigation pour SIGMA -->
+<nav class="main-nav">
+  <ul>
+    <li><a href="<?= ScriptApp.getService().getUrl(); ?>" class="nav-link">Dashboard</a></li>
+    <li><a href="#" onclick="loadPage('emprunts')" class="nav-link">Emprunts</a></li>
+    <li><a href="#" onclick="loadPage('stocks')" class="nav-link">Stocks</a></li>
+    <li><a href="#" onclick="loadPage('modules')" class="nav-link">Modules</a></li>
+    <li><a href="#" onclick="loadPage('livraisons')" class="nav-link">Livraisons</a></li>
+
+    <!-- Menu Admin - visible uniquement pour les administrateurs -->
+    <li id="admin-menu" class="dropdown" style="display: none;">
+      <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Administration</a>
+      <ul class="dropdown-menu">
+        <li><a href="#" onclick="loadPage('admin_users')" class="dropdown-item">Utilisateurs</a></li>
+        <!-- Autres liens d'administration à ajouter ici -->
+      </ul>
+    </li>
+
+    <!-- Menu utilisateur -->
+    <li id="user-menu" class="dropdown" style="display: none;">
+      <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-person-circle"></i> Mon compte
+      </a>
+      <ul class="dropdown-menu">
+        <li><a href="#" id="logout-link" class="dropdown-item">
+          <i class="bi bi-box-arrow-right"></i> Déconnexion
+        </a></li>
+      </ul>
+    </li>
+
+    <!-- Bouton de déconnexion direct (visible uniquement si connecté) -->
+    <li id="direct-logout" style="display: none;" class="ms-auto">
+      <a href="#" id="direct-logout-link" class="nav-link text-danger fw-bold">
+        <i class="bi bi-box-arrow-right"></i> Déconnexion
+      </a>
+    </li>
+
+    <!-- Lien de connexion - visible uniquement si non connecté -->
+    <li id="login-menu" style="display: none;" class="dropdown">
+      <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Connexion</a>
+      <ul class="dropdown-menu">
+        <li><a href="#" onclick="loadPage('login_instant')" class="dropdown-item"><strong>Connexion instantanée</strong></a></li>
+        <li><a href="#" onclick="loadPage('login_direct')" class="dropdown-item">Connexion directe</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a href="#" onclick="loadPage('login_new')" class="dropdown-item">Nouvelle connexion</a></li>
+        <li><a href="#" onclick="loadPage('login_simple')" class="dropdown-item">Connexion standard</a></li>
+        <li><a href="#" onclick="loadPage('login_minimal')" class="dropdown-item">Connexion minimale</a></li>
+        <li><a href="#" onclick="loadPage('test_login')" class="dropdown-item">Test de connexion</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+<script>
+  // Mettre à jour l'affichage du menu en fonction de l'état de l'authentification
+  document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si la fonction updateState existe (définie dans stateManager)
+    if (typeof updateUI === 'function') {
+      // Ajouter un hook pour mettre à jour le menu quand l'état change
+      const originalUpdateUI = updateUI;
+      updateUI = function() {
+        // Appeler la fonction originale
+        originalUpdateUI.apply(this, arguments);
+
+        // Mettre à jour le menu
+        updateMenu();
+      };
+    }
+
+    // Fonction commune pour gérer la déconnexion
+    function handleLogout(e) {
+      e.preventDefault();
+      console.log('Déconnexion demandée');
+
+      // Afficher un message de chargement
+      const loadingMsg = document.createElement('div');
+      loadingMsg.className = 'alert alert-info fixed-top m-3';
+      loadingMsg.innerHTML = '<strong>Déconnexion en cours...</strong>';
+      document.body.appendChild(loadingMsg);
+
+      if (typeof signOut === 'function') {
+        signOut()
+          .then(() => {
+            console.log('Déconnexion réussie, redirection...');
+            // La redirection est maintenant gérée dans la fonction signOut elle-même
+          })
+          .catch(error => {
+            console.error('Erreur lors de la déconnexion:', error);
+            // En cas d'erreur, forcer la redirection vers la page d'accueil
+            console.log('Erreur lors de la déconnexion, redirection forcée...');
+
+            // Construire l'URL de base
+            const baseUrl = window.location.href.split('?')[0];
+            console.log('Redirection vers la page de connexion simple...');
+
+            // Rediriger vers la page de connexion simple
+            window.location.href = baseUrl + '?page=login_simple';
+          });
+      } else {
+        console.error('Fonction signOut non disponible');
+        // Rediriger vers la page de connexion simple même si la fonction n'est pas disponible
+        const baseUrl = window.location.href.split('?')[0];
+        window.location.href = baseUrl + '?page=login_simple';
+      }
+    }
+
+    // Ajouter l'événement de déconnexion pour le menu déroulant
+    const logoutLink = document.getElementById('logout-link');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', handleLogout);
+    }
+
+    // Ajouter l'événement de déconnexion pour le lien direct
+    const directLogoutLink = document.getElementById('direct-logout-link');
+    if (directLogoutLink) {
+      directLogoutLink.addEventListener('click', handleLogout);
+    }
+
+    // Mettre à jour le menu initialement
+    updateMenu();
+  });
+
+  // Fonction pour mettre à jour l'affichage du menu
+  function updateMenu() {
+    // Vérifier si appState existe
+    if (typeof appState === 'undefined') return;
+
+    const adminMenu = document.getElementById('admin-menu');
+    const userMenu = document.getElementById('user-menu');
+    const loginMenu = document.getElementById('login-menu');
+    const directLogout = document.getElementById('direct-logout');
+
+    // Déterminer si l'utilisateur est authentifié
+    const isAuthenticated = appState.isAuthenticated || appState.user !== null;
+
+    console.log('État d\'authentification:', isAuthenticated ? 'Connecté' : 'Non connecté');
+    console.log('Rôle utilisateur:', appState.userRole || 'Non défini');
+
+    if (isAuthenticated) {
+      // Utilisateur connecté
+      if (loginMenu) loginMenu.style.display = 'none';
+      if (userMenu) userMenu.style.display = 'block';
+      if (directLogout) {
+        directLogout.style.display = 'block';
+        console.log('Bouton de déconnexion affiché');
+      } else {
+        console.warn('Élément direct-logout non trouvé dans le DOM');
+      }
+
+      // Afficher le menu admin si l'utilisateur est admin
+      if (adminMenu) {
+        adminMenu.style.display = appState.userRole === 'admin' ? 'block' : 'none';
+      }
+    } else {
+      // Utilisateur non connecté
+      if (adminMenu) adminMenu.style.display = 'none';
+      if (userMenu) userMenu.style.display = 'none';
+      if (directLogout) directLogout.style.display = 'none';
+      if (loginMenu) loginMenu.style.display = 'block';
+    }
+  }
+
+  // Fonction pour charger une page
+  function loadPage(page) {
+    try {
+      if (typeof logInfo === 'function') {
+        logInfo('Navigation vers la page: ' + page);
+      }
+      console.log('Navigation vers la page: ' + page);
+
+      // Construire l'URL avec le paramètre de page
+      const url = '<?= ScriptApp.getService().getUrl(); ?>?page=' + page;
+      console.log('URL de redirection: ' + url);
+
+      // Rediriger vers la page demandée
+      window.location.href = url;
+    } catch (error) {
+      console.error('Erreur lors de la navigation vers ' + page + ':', error);
+      if (typeof logError === 'function') {
+        logError('Erreur lors de la navigation vers ' + page, error);
+      }
+
+      // En cas d'erreur, essayer une redirection directe
+      window.location.href = '<?= ScriptApp.getService().getUrl(); ?>?page=' + page;
+    }
+  }
+</script>

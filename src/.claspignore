@@ -1,0 +1,26 @@
+# === Dossiers sources ===
+# Ces dossiers contiennent le code source qui est inclus via des wrappers .html 
+# Ils ne doivent pas être déployés directement dans Apps Script
+js/
+css/
+img/
+
+# === Configuration et outils ===
+# La configuration Firebase (y compris les Cloud Functions) est gérée séparément
+# via Firebase CLI et ne doit pas être déployée dans Apps Script.
+firebase/
+
+# === Documentation et tests ===
+# Ces dossiers ne concernent que le développement local.
+docs/
+tests/
+
+# === Dépendances et fichiers générés ===
+# Ignorer TOUS les dossiers node_modules, où qu'ils soient.
+**/node_modules/
+
+# Autres fichiers et dossiers à ignorer.
+.DS_Store
+*.log
+dist/
+*.js # Ignorer les fichiers JS à la racine de src (ils sont inclus via _UI.js)

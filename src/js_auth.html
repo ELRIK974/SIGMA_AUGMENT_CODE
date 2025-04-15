@@ -1,0 +1,433 @@
+<script>
+/**
+ * Fonctions d'authentification pour SIGMA
+ *
+ * Ce fichier gère:
+ * - La connexion et déconnexion
+ * - La gestion des utilisateurs
+ * - La vérification des rôles
+ */
+
+// Observer l'état d'authentification
+async function initAuth() {
+  // Vérifier que nous sommes dans l'environnement navigateur
+  if (typeof document === 'undefined') return;
+
+  try {
+    // Vérifier d'abord si nous avons un utilisateur de test dans le localStorage
+    // ou si nous sommes en mode test (paramètre URL test_auth=1 ou flag dans sessionStorage)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isTestAuth = urlParams.get('test_auth') === '1' || sessionStorage.getItem('SIGMA_AUTH_STATUS') === 'authenticated';
+    const urlRole = urlParams.get('role'); // Récupérer le rôle depuis l'URL si présent
+    const sessionRole = sessionStorage.getItem('SIGMA_AUTH_ROLE'); // Récupérer le rôle depuis sessionStorage
+    let testUser = null;
+
+    try {
+      const storedTestUser = localStorage.getItem('SIGMA_TEST_USER');
+      if (storedTestUser) {
+        testUser = JSON.parse(storedTestUser);
+        logInfo('Utilisateur de test trouvé dans localStorage', { email: testUser.email });
+      }
+    } catch (storageError) {
+      logWarning('Erreur lors de la récupération de l\'utilisateur de test', storageError);
+    }
+
+    // Si nous avons un utilisateur de test ou sommes en mode test
+    if (testUser || isTestAuth) {
+      logInfo('Mode authentification de test activé');
+
+      // Créer un utilisateur de test par défaut si nécessaire
+      if (!testUser) {
+        // Déterminer le rôle à utiliser (priorité : URL, puis sessionStorage, puis défaut)
+        const roleToUse = urlRole || sessionRole || 'admin';
+
+        testUser = {
+          uid: 'test-user-' + Date.now(),
+          email: roleToUse === 'admin' ? 'admin@example.com' :
+                (roleToUse === 'regisseur' ? 'regisseur@example.com' : 'user@example.com'),
+          displayName: roleToUse === 'admin' ? 'Administrateur Test' :
+                      (roleToUse === 'regisseur' ? 'Régisseur Test' : 'Utilisateur Test'),
+          photoURL: null,
+          role: roleToUse
+        };
+        logInfo('Utilisateur de test créé', { email: testUser.email, role: roleToUse });
+
+        // Stocker l'utilisateur dans localStorage pour les futures visites
+        try {
+          localStorage.setItem('SIGMA_TEST_USER', JSON.stringify(testUser));
+        } catch (e) {
+          logWarning('Impossible de stocker l\'utilisateur dans localStorage', e);
+        }
+      }
+
+      // Déterminer le rôle à utiliser
+      // Priorité : 1. Rôle dans l'URL, 2. Rôle dans sessionStorage, 3. Rôle dans l'utilisateur test, 4. Rôle par défaut (admin)
+      const userRole = urlRole || sessionRole || (testUser.role || 'admin');
+
+      // Mettre à jour l'état de l'application
+      updateState({
+        user: testUser,
+        userRole: userRole,
+        isAuthenticated: true
+      });
+
+      // Log pour débogage
+      console.log('Authentification de test activée:', {
+        user: testUser.displayName,
+        role: userRole,
+        isAuthenticated: true
+      });
+
+      // Mettre à jour sessionStorage pour maintenir la session
+      sessionStorage.setItem('SIGMA_AUTH_STATUS', 'authenticated');
+      sessionStorage.setItem('SIGMA_AUTH_ROLE', userRole);
+
+      logInfo('Authentification de test réussie', { role: userRole });
+      return; // Sortir de la fonction, pas besoin d'initialiser Firebase
+    }
+
+    // Sinon, continuer avec l'authentification Firebase normale
+    const auth = await getAuthInstance();
+
+    if (!auth) {
+      logError("Instance Auth non disponible dans initAuth");
+      return;
+    }
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // Utilisateur connecté
+        logInfo('Utilisateur connecté', {
+          email: user.email,
+          displayName: user.displayName
+        });
+
+        // Mettre à jour l'état de l'application
+        updateState({ user: {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL
+        }});
+
+        // Vérifier les rôles de l'utilisateur
+        getUserRole(user);
+      } else {
+        // Utilisateur déconnecté
+        logInfo('Utilisateur déconnecté');
+        updateState({ user: null, userRole: null });
+
+        // Rediriger vers la page de connexion si nécessaire
+        // Vérifier si nous sommes sur une page protégée
+        const currentPath = window.location.search;
+        if (currentPath.includes('page=admin_') || currentPath.includes('page=emprunts') ||
+            currentPath.includes('page=stocks') || currentPath.includes('page=modules') ||
+            currentPath.includes('page=livraisons')) {
+          // Utiliser directement l'URL de base sans paramètres
+          const baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl;
+        }
+      }
+    });
+  } catch (error) {
+    logError('Erreur lors de l\'initialisation de l\'authentification', error);
+  }
+}
+
+// Connecter un utilisateur avec Google
+async function signInWithGoogle() {
+  // Vérifier que nous sommes dans l'environnement navigateur
+  if (typeof document === 'undefined') return Promise.reject("Environnement non-navigateur");
+
+  try {
+    const auth = await getAuthInstance();
+
+    if (!auth) {
+      return Promise.reject("Instance Auth non disponible");
+    }
+
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    return auth.signInWithPopup(provider)
+      .then(result => {
+        logInfo('Connexion réussie avec Google', {
+          email: result.user.email,
+          displayName: result.user.displayName
+        });
+        return result;
+      })
+      .catch(error => {
+        logError('Erreur de connexion avec Google', error);
+        showNotification('Erreur lors de la connexion: ' + error.message, 'error');
+        throw error;
+      });
+  } catch (error) {
+    logError('Erreur lors de l\'initialisation de l\'authentification pour la connexion', error);
+    return Promise.reject(error);
+  }
+}
+
+// Déconnecter l'utilisateur
+async function signOut() {
+  // Vérifier que nous sommes dans l'environnement navigateur
+  if (typeof document === 'undefined') return Promise.reject("Environnement non-navigateur");
+
+  try {
+    // Obtenir l'URL du service pour la redirection
+    let serviceUrl = '';
+    const serviceUrlElement = document.getElementById('service-url');
+    if (serviceUrlElement) {
+      serviceUrl = serviceUrlElement.getAttribute('data-url');
+      console.log('URL du service obtenue depuis l\'attribut data-url:', serviceUrl);
+    } else {
+      // Construire l'URL de base
+      const currentUrl = window.location.href;
+      const urlParts = currentUrl.split('/dev');
+      if (urlParts.length > 1) {
+        serviceUrl = urlParts[0] + '/dev';
+        console.log('URL du service construite depuis l\'URL actuelle:', serviceUrl);
+      } else {
+        serviceUrl = currentUrl.split('?')[0];
+        console.log('URL du service par défaut:', serviceUrl);
+      }
+    }
+
+    // Créer une notification visuelle pour indiquer la déconnexion en cours
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'alert alert-info fixed-top m-3';
+    loadingMsg.innerHTML = '<strong>Déconnexion en cours...</strong>';
+    document.body.appendChild(loadingMsg);
+
+    // Vérifier d'abord si nous avons un utilisateur de test ou une session
+    let hasTestUser = false;
+    let hasSession = false;
+
+    try {
+      // Vérifier localStorage
+      const storedTestUser = localStorage.getItem('SIGMA_TEST_USER');
+      if (storedTestUser) {
+        // Supprimer l'utilisateur de test du localStorage
+        localStorage.removeItem('SIGMA_TEST_USER');
+        hasTestUser = true;
+        logInfo('Utilisateur de test supprimé du localStorage');
+      }
+
+      // Vérifier sessionStorage
+      if (sessionStorage.getItem('SIGMA_AUTH_STATUS') === 'authenticated') {
+        sessionStorage.removeItem('SIGMA_AUTH_STATUS');
+        sessionStorage.removeItem('SIGMA_AUTH_ROLE');
+        hasSession = true;
+        logInfo('Session d\'authentification supprimée');
+      }
+    } catch (storageError) {
+      logWarning('Erreur lors de la suppression des données d\'authentification', storageError);
+    }
+
+    // Si nous avions un utilisateur de test ou une session, mettre à jour l'état et terminer
+    if (hasTestUser || hasSession) {
+      // Mettre à jour l'état de l'application
+      updateState({ user: null, userRole: null, isAuthenticated: false });
+      logInfo('Déconnexion de l\'utilisateur de test réussie');
+
+      // Afficher une notification de succès
+      loadingMsg.className = 'alert alert-success fixed-top m-3';
+      loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong> Redirection en cours...';
+
+      // Rediriger vers la page de connexion après un court délai
+      setTimeout(function() {
+        console.log('Redirection vers la page de connexion...');
+        // Rediriger vers la page de connexion principale avec une URL simplifiée
+        // Utiliser directement l'URL de base sans paramètres
+        const baseUrl = window.location.href.split('?')[0];
+        window.location.href = baseUrl;
+      }, 1000);
+
+      return Promise.resolve();
+    }
+
+    // Sinon, continuer avec la déconnexion Firebase normale
+    const auth = await getAuthInstance();
+
+    if (!auth) {
+      // Même en cas d'erreur, mettre à jour l'état local
+      updateState({ user: null, userRole: null, isAuthenticated: false });
+
+      // Afficher une notification d'erreur
+      loadingMsg.className = 'alert alert-warning fixed-top m-3';
+      loadingMsg.innerHTML = '<strong>Erreur Firebase!</strong> Redirection en cours...';
+
+      // Rediriger quand même
+      setTimeout(function() {
+        // Utiliser directement l'URL de base sans paramètres
+        const baseUrl = window.location.href.split('?')[0];
+        window.location.href = baseUrl;
+      }, 1000);
+
+      return Promise.reject("Instance Auth non disponible");
+    }
+
+    return auth.signOut()
+      .then(() => {
+        logInfo('Déconnexion Firebase réussie');
+
+        // Mettre à jour l'état local
+        updateState({ user: null, userRole: null, isAuthenticated: false });
+
+        // Mettre à jour la notification
+        loadingMsg.className = 'alert alert-success fixed-top m-3';
+        loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong> Redirection en cours...';
+
+        // Rediriger vers la page de connexion après un court délai
+        setTimeout(function() {
+          console.log('Redirection vers la page de connexion...');
+          // Utiliser directement l'URL de base sans paramètres
+          const baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl;
+        }, 1000);
+      })
+      .catch(error => {
+        logError('Erreur de déconnexion Firebase', error);
+
+        // Même en cas d'erreur, mettre à jour l'état local
+        updateState({ user: null, userRole: null, isAuthenticated: false });
+
+        // Mettre à jour la notification
+        loadingMsg.className = 'alert alert-warning fixed-top m-3';
+        loadingMsg.innerHTML = '<strong>Erreur lors de la déconnexion!</strong> Redirection en cours...';
+
+        // Rediriger quand même
+        setTimeout(function() {
+          // Utiliser directement l'URL de base sans paramètres
+          const baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl;
+        }, 1000);
+
+        throw error;
+      });
+  } catch (error) {
+    logError('Erreur lors de l\'initialisation de l\'authentification pour la déconnexion', error);
+
+    // Tenter une redirection directe en dernier recours
+    try {
+      // Utiliser directement l'URL de base sans paramètres
+      window.location.href = window.location.href.split('?')[0];
+    } catch (e) {
+      console.error('Impossible de rediriger après erreur:', e);
+    }
+
+    return Promise.reject(error);
+  }
+}
+
+// Obtenir l'instance Firebase Functions
+async function getFunctionsInstance() {
+  try {
+    return await firebaseUtils.getFirebaseFunctions();
+  } catch (error) {
+    logError('Erreur lors de la récupération de l\'instance Firebase Functions', error);
+    return null;
+  }
+}
+
+// Obtenir l'instance Firestore
+async function getFirestoreInstance() {
+  try {
+    return await firebaseUtils.getFirestoreDb();
+  } catch (error) {
+    logError('Erreur lors de la récupération de l\'instance Firestore', error);
+    return null;
+  }
+}
+
+// Obtenir l'instance Auth
+async function getAuthInstance() {
+  try {
+    return await firebaseUtils.getFirebaseAuth();
+  } catch (error) {
+    logError('Erreur lors de la récupération de l\'instance Auth', error);
+    return null;
+  }
+}
+
+// Obtenir le rôle de l'utilisateur
+async function getUserRole(user) {
+  // Vérifier que nous sommes dans l'environnement navigateur
+  if (typeof document === 'undefined') return Promise.resolve();
+
+  if (!user) {
+    logWarning('Tentative de récupération du rôle pour un utilisateur null');
+    return;
+  }
+
+  try {
+    // Vérifier d'abord si l'utilisateur a des custom claims
+    // Force un rafraîchissement du token pour obtenir les dernières custom claims
+    await user.getIdToken(true);
+    const idTokenResult = await user.getIdTokenResult();
+
+    if (idTokenResult.claims && idTokenResult.claims.role) {
+      // Utiliser le rôle des custom claims
+      const role = idTokenResult.claims.role;
+      updateState({ userRole: role });
+      logInfo('Rôle utilisateur récupéré depuis custom claims', { role });
+      return;
+    }
+
+    // Si pas de custom claims, essayer de récupérer depuis Firestore (compatibilité)
+    const db = getFirestoreInstance();
+
+    if (!db) {
+      logError("Instance Firestore non disponible dans getUserRole");
+      return;
+    }
+
+    const userDoc = await db.collection('users').doc(user.uid).get();
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      updateState({ userRole: userData.role });
+      logInfo('Rôle utilisateur récupéré depuis Firestore', { role: userData.role });
+
+      // Appeler la Cloud Function pour migrer ce rôle vers custom claims
+      try {
+        const functions = await getFunctionsInstance();
+        if (functions) {
+          const getUserRoleFunction = functions.httpsCallable('getUserRole');
+          await getUserRoleFunction({ uid: user.uid });
+          logInfo('Migration du rôle vers custom claims demandée');
+        }
+      } catch (fnError) {
+        logWarning('Erreur lors de la migration du rôle vers custom claims', fnError);
+        // Continuer quand même, car le rôle Firestore a été récupéré
+      }
+    } else {
+      // Si l'utilisateur n'existe pas dans Firestore, utiliser le rôle par défaut
+      // La Cloud Function onUserCreated devrait déjà avoir défini les custom claims
+      updateState({ userRole: 'utilisateur' });
+      logInfo('Rôle par défaut utilisé', { role: 'utilisateur' });
+    }
+  } catch (error) {
+    logError('Erreur lors de la récupération du rôle', error);
+  }
+}
+
+// Vérifier si l'utilisateur a un rôle spécifique
+function hasRole(requiredRole) {
+  const { userRole } = appState;
+
+  // Si l'utilisateur est admin, il a accès à tout
+  if (userRole === 'admin') return true;
+
+  // Sinon, vérifier le rôle spécifique
+  if (requiredRole === 'regisseur') {
+    return userRole === 'regisseur' || userRole === 'admin';
+  }
+
+  // Pour le rôle 'utilisateur', tous les utilisateurs connectés y ont accès
+  if (requiredRole === 'utilisateur') {
+    return !!userRole;
+  }
+
+  return false;
+}
+</script>

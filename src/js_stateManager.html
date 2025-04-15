@@ -1,0 +1,183 @@
+<script>
+/**
+ * Gestionnaire d'état pour SIGMA
+ *
+ * Ce module gère l'état de l'application côté client:
+ * - Stockage temporaire des données
+ * - Coordination des mises à jour
+ * - Gestion des composants UI
+ */
+
+// État global de l'application
+const appState = {
+  currentPage: 'dashboard',
+  user: null,
+  userRole: null,
+  isAuthenticated: false,
+  // À compléter avec d'autres propriétés d'état
+};
+
+// Initialiser l'état depuis sessionStorage si disponible
+try {
+  if (typeof sessionStorage !== 'undefined') {
+    const authStatus = sessionStorage.getItem('SIGMA_AUTH_STATUS');
+    const authRole = sessionStorage.getItem('SIGMA_AUTH_ROLE');
+
+    if (authStatus === 'authenticated') {
+      appState.isAuthenticated = true;
+
+      // Essayer de récupérer l'utilisateur depuis localStorage
+      try {
+        const storedUser = localStorage.getItem('SIGMA_TEST_USER');
+        if (storedUser) {
+          appState.user = JSON.parse(storedUser);
+        }
+      } catch (e) {
+        console.warn('Erreur lors de la récupération de l\'utilisateur depuis localStorage', e);
+      }
+
+      // Définir le rôle
+      appState.userRole = authRole || 'utilisateur';
+    }
+  }
+} catch (e) {
+  console.warn('Erreur lors de l\'initialisation de l\'appState depuis sessionStorage', e);
+}
+
+/**
+ * Met à jour l'état et déclenche les mises à jour UI nécessaires
+ */
+function updateState(stateChanges) {
+  // Mettre à jour l'état avec les changements
+  Object.assign(appState, stateChanges);
+
+  // Mettre à jour isAuthenticated si user a changé
+  if ('user' in stateChanges) {
+    appState.isAuthenticated = stateChanges.user !== null;
+  }
+
+  // Si isAuthenticated est explicitement défini, l'utiliser
+  if ('isAuthenticated' in stateChanges) {
+    // Déjà mis à jour par Object.assign
+  } else if (appState.user === null && !('isAuthenticated' in stateChanges)) {
+    // Si user est null et isAuthenticated n'est pas explicitement défini, mettre isAuthenticated à false
+    appState.isAuthenticated = false;
+  }
+
+  console.log('État mis à jour:', {
+    user: appState.user ? 'Défini' : 'Null',
+    isAuthenticated: appState.isAuthenticated,
+    userRole: appState.userRole
+  });
+
+  // Déclencher les mises à jour UI
+  updateUI();
+}
+
+/**
+ * Met à jour l'interface utilisateur selon l'état actuel
+ */
+function updateUI() {
+  console.log('Mise à jour UI avec nouvel état:', appState);
+
+  // Mettre à jour les éléments d'authentification
+  updateAuthUI();
+
+  // Mettre à jour les éléments spécifiques à la page
+  updatePageSpecificUI();
+}
+
+/**
+ * Met à jour les éléments d'interface liés à l'authentification
+ */
+function updateAuthUI() {
+  // Vérifier si nous sommes dans un environnement navigateur
+  if (typeof document === 'undefined') return;
+
+  // Récupérer les éléments du menu
+  const adminMenu = document.getElementById('admin-menu');
+  const userMenu = document.getElementById('user-menu');
+  const loginMenu = document.getElementById('login-menu');
+  const directLogout = document.getElementById('direct-logout');
+
+  // Récupérer les éléments de statut d'authentification
+  const authStatusElement = document.getElementById('auth-status');
+  const authActionsElement = document.getElementById('auth-actions');
+
+  // Déterminer si l'utilisateur est authentifié
+  // Utiliser directement appState.isAuthenticated qui est maintenant correctement géré par updateState
+  const isAuthenticated = appState.isAuthenticated;
+
+  console.log('updateAuthUI - État authentification:', isAuthenticated, {
+    isAuthenticated: appState.isAuthenticated,
+    user: appState.user ? appState.user.displayName : 'null',
+    userRole: appState.userRole
+  });
+
+  // Mettre à jour les éléments du menu
+  if (adminMenu) adminMenu.style.display = (isAuthenticated && appState.userRole === 'admin') ? 'block' : 'none';
+  if (userMenu) userMenu.style.display = isAuthenticated ? 'block' : 'none';
+  if (loginMenu) loginMenu.style.display = isAuthenticated ? 'none' : 'block';
+  if (directLogout) {
+    directLogout.style.display = isAuthenticated ? 'block' : 'none';
+    console.log('Bouton déconnexion mis à jour:', directLogout.style.display);
+  }
+
+  // Mettre à jour les éléments de statut d'authentification
+  if (authStatusElement) {
+    if (isAuthenticated) {
+      const userName = appState.user?.displayName || 'Utilisateur';
+      const userRole = appState.userRole || 'utilisateur';
+      const roleLabel = userRole === 'admin' ? 'Administrateur' :
+                       (userRole === 'regisseur' ? 'Régisseur' : 'Utilisateur');
+
+      authStatusElement.innerHTML = `
+        <div class="alert alert-success">
+          <strong>Connecté en tant que ${userName}</strong>
+          <span class="badge bg-${userRole === 'admin' ? 'danger' : (userRole === 'regisseur' ? 'warning' : 'success')} ms-2">${roleLabel}</span>
+        </div>
+      `;
+    } else {
+      authStatusElement.innerHTML = `
+        <div class="alert alert-secondary">
+          <strong>Non connecté</strong> - Veuillez vous connecter pour accéder à toutes les fonctionnalités.
+        </div>
+      `;
+    }
+  }
+
+  // Mettre à jour les actions d'authentification
+  if (authActionsElement) {
+    if (isAuthenticated) {
+      authActionsElement.innerHTML = `
+        <button id="logout-button" class="btn btn-outline-danger">
+          <i class="bi bi-box-arrow-right"></i> Déconnexion
+        </button>
+      `;
+
+      // Ajouter l'événement de déconnexion
+      const logoutButton = document.getElementById('logout-button');
+      if (logoutButton) {
+        logoutButton.addEventListener('click', function() {
+          if (typeof signOut === 'function') {
+            signOut();
+          }
+        });
+      }
+    } else {
+      authActionsElement.innerHTML = `
+        <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login" class="btn btn-primary">
+          <i class="bi bi-box-arrow-in-right"></i> Connexion
+        </a>
+      `;
+    }
+  }
+}
+
+/**
+ * Met à jour les éléments spécifiques à la page courante
+ */
+function updatePageSpecificUI() {
+  // À implémenter selon les besoins spécifiques de chaque page
+}
+</script>

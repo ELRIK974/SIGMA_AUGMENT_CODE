@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIGMA - Gestion des Utilisateurs</title>
+
+    <!-- Inclure les styles -->
+    <?!= include('css_styles'); ?>
+
+    <!-- Inclure Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-functions-compat.js"></script>
+
+    <!-- Inclure les scripts utilitaires -->
+    <?!= include('js_loggingUtils'); ?>
+    <?!= include('js_firebaseUtils'); ?>
+    <?!= include('js_uiUtils'); ?>
+    <?!= include('js_stateManager'); ?>
+    <?!= include('js_auth'); ?>
+
+    <!-- Inclure le script spécifique à la gestion des utilisateurs -->
+    <?!= include('js_admin_users'); ?>
+  </head>
+  <body>
+    <!-- Navigation principale -->
+    <?!= include('menu'); ?>
+
+    <!-- Contenu principal -->
+    <div class="container">
+      <h1>Gestion des Utilisateurs</h1>
+
+      <div class="alert alert-info" role="alert">
+        <strong>Information :</strong> Cette page permet de gérer les utilisateurs et leurs rôles dans l'application SIGMA.
+      </div>
+
+      <!-- Bouton pour migrer tous les utilisateurs vers les custom claims -->
+      <div class="mb-4">
+        <button id="migrateAllUsers" class="btn btn-warning">
+          Migrer tous les utilisateurs vers Custom Claims
+        </button>
+        <small class="text-muted ms-2">
+          Utilisez cette fonction pour migrer tous les rôles des utilisateurs depuis Firestore vers Firebase Custom Claims.
+        </small>
+      </div>
+
+      <!-- Tableau des utilisateurs -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h2>Liste des Utilisateurs</h2>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Nom</th>
+                  <th>Rôle</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <!-- Les utilisateurs seront ajoutés ici dynamiquement -->
+                <tr>
+                  <td colspan="4" class="text-center">Chargement des utilisateurs...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal pour modifier le rôle d'un utilisateur -->
+    <div class="modal fade" id="editRoleModal" tabindex="-1" aria-labelledby="editRoleModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="editRoleModalLabel">Modifier le rôle</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editRoleForm">
+              <input type="hidden" id="editUserId">
+              <div class="mb-3">
+                <label for="userEmail" class="form-label">Email</label>
+                <input type="email" class="form-control" id="userEmail" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="userName" class="form-label">Nom</label>
+                <input type="text" class="form-control" id="userName" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="userRole" class="form-label">Rôle</label>
+                <select class="form-select" id="userRole" required>
+                  <option value="utilisateur">Utilisateur</option>
+                  <option value="regisseur">Régisseur</option>
+                  <option value="admin">Administrateur</option>
+                </select>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-primary" id="saveRoleButton">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pied de page -->
+    <?!= include('footer'); ?>
+
+    <script>
+      // Initialiser l'application quand le DOM est chargé
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialiser Firebase
+        firebaseUtils.initFirebase()
+          .then(() => {
+            // Vérifier l'authentification
+            initAuth();
+
+            // Initialiser la gestion des utilisateurs
+            initUserManagement();
+          })
+          .catch(error => {
+            console.error('Erreur lors de l\'initialisation:', error);
+            showNotification('Erreur lors de l\'initialisation de l\'application', 'error');
+          });
+      });
+    </script>
+  </body>
+</html>

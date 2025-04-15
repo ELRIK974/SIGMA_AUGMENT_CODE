@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIGMA - Connexion Minimale</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container mt-5">
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="text-center">SIGMA - Connexion</h2>
+            </div>
+            <div class="card-body">
+              <p class="text-center">Page de connexion minimale pour tests</p>
+              <div class="d-grid gap-2">
+                <button id="backButton" class="btn btn-secondary">Retour au Dashboard</button>
+                <button id="loginButton" class="btn btn-primary">Se connecter avec Google</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Bouton de retour
+        document.getElementById('backButton').addEventListener('click', function() {
+          window.location.href = '<?= ScriptApp.getService().getUrl(); ?>';
+        });
+        
+        // Bouton de connexion
+        document.getElementById('loginButton').addEventListener('click', function() {
+          alert('Fonctionnalité de connexion non implémentée dans cette version minimale');
+        });
+        
+        console.log('Page de connexion minimale chargée avec succès');
+      });
+    </script>
+  </body>
+</html>

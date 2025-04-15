@@ -1,0 +1,307 @@
+<script>
+/**
+ * Gestion des utilisateurs pour SIGMA
+ *
+ * Ce fichier gère:
+ * - L'affichage de la liste des utilisateurs
+ * - L'ajout, la modification et la suppression d'utilisateurs
+ * - L'attribution des rôles
+ */
+
+// Variables globales
+let userModal;
+let deleteModal;
+let currentUserId;
+
+/**
+ * Initialise la gestion des utilisateurs
+ */
+function initUserManagement() {
+  // Initialiser les modals Bootstrap
+  userModal = new bootstrap.Modal(document.getElementById('user-modal'));
+  deleteModal = new bootstrap.Modal(document.getElementById('delete-modal'));
+
+  // Charger la liste des utilisateurs
+  loadUsers();
+
+  // Ajouter les écouteurs d'événements
+  document.getElementById('add-user-btn').addEventListener('click', showAddUserModal);
+  document.getElementById('save-user-btn').addEventListener('click', saveUser);
+  document.getElementById('confirm-delete-btn').addEventListener('click', deleteUser);
+}
+
+/**
+ * Charge la liste des utilisateurs depuis Firestore
+ */
+async function loadUsers() {
+  try {
+    const db = await getFirestoreInstance();
+    const usersRef = db.collection('users');
+
+    // Écouter les changements en temps réel
+    usersRef.onSnapshot(snapshot => {
+      const usersTableBody = document.getElementById('users-table-body');
+
+      // Vider le tableau
+      usersTableBody.innerHTML = '';
+
+      if (snapshot.empty) {
+        usersTableBody.innerHTML = '<tr><td colspan="5" class="text-center">Aucun utilisateur trouvé</td></tr>';
+        return;
+      }
+
+      // Ajouter chaque utilisateur au tableau
+      snapshot.forEach(doc => {
+        const userData = doc.data();
+        const userRow = createUserRow(doc.id, userData);
+        usersTableBody.appendChild(userRow);
+      });
+    }, error => {
+      console.error('Erreur lors du chargement des utilisateurs:', error);
+      showAlert('Erreur lors du chargement des utilisateurs', 'danger');
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation de Firestore:', error);
+    showAlert('Erreur de connexion à la base de données', 'danger');
+  }
+}
+
+/**
+ * Crée une ligne de tableau pour un utilisateur
+ * @param {string} userId - ID de l'utilisateur
+ * @param {Object} userData - Données de l'utilisateur
+ * @return {HTMLElement} Élément TR pour le tableau
+ */
+function createUserRow(userId, userData) {
+  const tr = document.createElement('tr');
+
+  // Nom d'utilisateur
+  const nameTd = document.createElement('td');
+  nameTd.textContent = userData.displayName || '(Non défini)';
+  tr.appendChild(nameTd);
+
+  // Email
+  const emailTd = document.createElement('td');
+  emailTd.textContent = userData.email || '(Non défini)';
+  tr.appendChild(emailTd);
+
+  // Rôle
+  const roleTd = document.createElement('td');
+  roleTd.textContent = formatRole(userData.role);
+  tr.appendChild(roleTd);
+
+  // Statut
+  const statusTd = document.createElement('td');
+  const statusBadge = document.createElement('span');
+  statusBadge.className = `badge ${userData.disabled ? 'bg-danger' : 'bg-success'}`;
+  statusBadge.textContent = userData.disabled ? 'Désactivé' : 'Actif';
+  statusTd.appendChild(statusBadge);
+  tr.appendChild(statusTd);
+
+  // Actions
+  const actionsTd = document.createElement('td');
+
+  // Bouton Modifier
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn btn-sm btn-outline-primary me-2';
+  editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+  editBtn.title = 'Modifier';
+  editBtn.addEventListener('click', () => showEditUserModal(userId, userData));
+  actionsTd.appendChild(editBtn);
+
+  // Bouton Supprimer
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'btn btn-sm btn-outline-danger';
+  deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+  deleteBtn.title = 'Supprimer';
+  deleteBtn.addEventListener('click', () => showDeleteModal(userId, userData));
+  actionsTd.appendChild(deleteBtn);
+
+  tr.appendChild(actionsTd);
+
+  return tr;
+}
+
+/**
+ * Formate le rôle pour l'affichage
+ * @param {string} role - Rôle de l'utilisateur
+ * @return {string} Rôle formaté
+ */
+function formatRole(role) {
+  switch (role) {
+    case 'admin':
+      return 'Administrateur';
+    case 'regisseur':
+      return 'Régisseur';
+    case 'utilisateur':
+      return 'Utilisateur';
+    default:
+      return role || '(Non défini)';
+  }
+}
+
+/**
+ * Affiche le modal pour ajouter un utilisateur
+ */
+function showAddUserModal() {
+  // Réinitialiser le formulaire
+  document.getElementById('user-form').reset();
+  document.getElementById('user-id').value = '';
+
+  // Mettre à jour le titre du modal
+  document.getElementById('user-modal-label').textContent = 'Ajouter un utilisateur';
+
+  // Afficher le modal
+  userModal.show();
+}
+
+/**
+ * Affiche le modal pour modifier un utilisateur
+ * @param {string} userId - ID de l'utilisateur
+ * @param {Object} userData - Données de l'utilisateur
+ */
+function showEditUserModal(userId, userData) {
+  // Remplir le formulaire avec les données de l'utilisateur
+  document.getElementById('user-id').value = userId;
+  document.getElementById('user-email').value = userData.email || '';
+  document.getElementById('user-role').value = userData.role || '';
+
+  // Mettre à jour le titre du modal
+  document.getElementById('user-modal-label').textContent = 'Modifier un utilisateur';
+
+  // Afficher le modal
+  userModal.show();
+}
+
+/**
+ * Affiche le modal de confirmation de suppression
+ * @param {string} userId - ID de l'utilisateur
+ * @param {Object} userData - Données de l'utilisateur
+ */
+function showDeleteModal(userId, userData) {
+  // Stocker l'ID de l'utilisateur à supprimer
+  currentUserId = userId;
+
+  // Mettre à jour le message de confirmation
+  document.getElementById('delete-user-info').textContent = `Email: ${userData.email}`;
+
+  // Afficher le modal
+  deleteModal.show();
+}
+
+/**
+ * Enregistre un utilisateur (ajout ou modification)
+ */
+async function saveUser() {
+  try {
+    // Récupérer les données du formulaire
+    const userId = document.getElementById('user-id').value;
+    const email = document.getElementById('user-email').value;
+    const role = document.getElementById('user-role').value;
+
+    // Valider les données
+    if (!email || !role) {
+      showAlert('Veuillez remplir tous les champs obligatoires', 'warning');
+      return;
+    }
+
+    // Récupérer l'instance Firestore
+    const db = await getFirestoreInstance();
+
+    // Récupérer l'instance Functions
+    const functions = await getFunctionsInstance();
+    const setUserRoleFunction = functions.httpsCallable('setUserRole');
+
+    if (userId) {
+      // Modification d'un utilisateur existant
+      await db.collection('users').doc(userId).update({
+        email: email,
+        role: role,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Mettre à jour les custom claims via Cloud Function
+      await setUserRoleFunction({ uid: userId, role: role });
+
+      showAlert('Utilisateur modifié avec succès', 'success');
+    } else {
+      // Ajout d'un nouvel utilisateur
+      // Vérifier si l'email existe déjà
+      const snapshot = await db.collection('users').where('email', '==', email).get();
+
+      if (!snapshot.empty) {
+        showAlert('Un utilisateur avec cet email existe déjà', 'warning');
+        return;
+      }
+
+      // Créer l'utilisateur via Cloud Function
+      const createUserFunction = functions.httpsCallable('createUser');
+      const result = await createUserFunction({ email: email, role: role });
+
+      showAlert('Utilisateur ajouté avec succès', 'success');
+    }
+
+    // Fermer le modal
+    userModal.hide();
+  } catch (error) {
+    console.error('Erreur lors de l\'enregistrement de l\'utilisateur:', error);
+    showAlert(`Erreur: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Supprime un utilisateur
+ */
+async function deleteUser() {
+  try {
+    if (!currentUserId) {
+      showAlert('ID utilisateur non défini', 'danger');
+      return;
+    }
+
+    // Récupérer l'instance Functions
+    const functions = await getFunctionsInstance();
+    const deleteUserFunction = functions.httpsCallable('deleteUser');
+
+    // Supprimer l'utilisateur via Cloud Function
+    await deleteUserFunction({ uid: currentUserId });
+
+    // Fermer le modal
+    deleteModal.hide();
+
+    showAlert('Utilisateur supprimé avec succès', 'success');
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'utilisateur:', error);
+    showAlert(`Erreur: ${error.message}`, 'danger');
+  }
+}
+
+/**
+ * Affiche une alerte
+ * @param {string} message - Message à afficher
+ * @param {string} type - Type d'alerte (success, danger, warning, info)
+ */
+function showAlert(message, type = 'info') {
+  const alertContainer = document.getElementById('alert-container');
+
+  const alert = document.createElement('div');
+  alert.className = `alert alert-${type} alert-dismissible fade show`;
+  alert.role = 'alert';
+
+  alert.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+  `;
+
+  // Ajouter l'alerte au conteneur
+  alertContainer.innerHTML = '';
+  alertContainer.appendChild(alert);
+
+  // Supprimer l'alerte après 5 secondes
+  setTimeout(() => {
+    if (alert.parentNode) {
+      alert.parentNode.removeChild(alert);
+    }
+  }, 5000);
+}
+</script>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SIGMA - Dashboard</title>
+
+    <!-- Élément caché pour stocker l'URL du service Apps Script -->
+    <div id="service-url" data-url="<?= ScriptApp.getService().getUrl(); ?>" style="display: none;"></div>
+
+    <!-- Inclure les styles -->
+    <?!= include('css_styles'); ?>
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+
+    <!-- Inclure Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-functions-compat.js"></script>
+
+    <!-- Inclure les scripts utilitaires -->
+    <?!= include('js_loggingUtils'); ?>
+    <?!= include('js_firebaseUtils'); ?>
+    <?!= include('js_uiUtils'); ?>
+    <?!= include('js_stateManager'); ?>
+    <?!= include('js_auth'); ?>
+
+    <!-- Inclure le script principal -->
+    <?!= include('js_main'); ?>
+  </head>
+  <body>
+    <!-- Navigation principale -->
+    <?!= include('menu'); ?>
+
+    <!-- Contenu principal -->
+    <div class="container">
+      <h1>SIGMA - Dashboard</h1>
+
+      <!-- Statut d'authentification -->
+      <div class="row mb-4">
+        <div class="col-md-8" id="auth-status">
+          <!-- Contenu dynamique généré par updateAuthUI() -->
+        </div>
+        <div class="col-md-4 text-end" id="auth-actions">
+          <!-- Contenu dynamique généré par updateAuthUI() -->
+        </div>
+      </div>
+
+      <script>
+        // Fonction pour mettre à jour l'affichage des éléments d'authentification
+        document.addEventListener('DOMContentLoaded', function() {
+          // Log de débogage pour vérifier l'état d'authentification au chargement
+          console.log('Dashboard chargé - État d\'authentification:', {
+            appState: typeof appState !== 'undefined' ? {
+              isAuthenticated: appState.isAuthenticated,
+              user: appState.user ? appState.user.displayName : 'null',
+              userRole: appState.userRole
+            } : 'non défini',
+            sessionStorage: {
+              SIGMA_AUTH_STATUS: sessionStorage.getItem('SIGMA_AUTH_STATUS'),
+              SIGMA_AUTH_ROLE: sessionStorage.getItem('SIGMA_AUTH_ROLE')
+            },
+            localStorage: {
+              SIGMA_TEST_USER: localStorage.getItem('SIGMA_TEST_USER') ? 'présent' : 'absent'
+            },
+            urlParams: new URLSearchParams(window.location.search).toString()
+          });
+
+          // Vérifier si nous avons un utilisateur de test dans localStorage
+          try {
+            const storedTestUser = localStorage.getItem('SIGMA_TEST_USER');
+            if (storedTestUser) {
+              const testUser = JSON.parse(storedTestUser);
+              console.log('Utilisateur de test trouvé dans localStorage:', {
+                displayName: testUser.displayName,
+                email: testUser.email,
+                role: testUser.role
+              });
+            }
+          } catch (e) {
+            console.warn('Erreur lors de la lecture de SIGMA_TEST_USER:', e);
+          }
+          // Mettre à jour l'affichage des éléments d'authentification en fonction de l'état
+          function updateAuthElements() {
+            // Vérifier d'abord si nous avons un utilisateur de test ou une session
+            const isTestAuth = new URLSearchParams(window.location.search).get('test_auth') === '1' ||
+                              sessionStorage.getItem('SIGMA_AUTH_STATUS') === 'authenticated';
+            const hasTestUser = localStorage.getItem('SIGMA_TEST_USER') !== null;
+
+            // Déterminer si l'utilisateur est authentifié
+            let isAuthenticated = false;
+
+            if (typeof appState !== 'undefined') {
+              isAuthenticated = appState.isAuthenticated || appState.user !== null;
+            } else {
+              // Si appState n'est pas encore défini, utiliser les indicateurs de test
+              isAuthenticated = isTestAuth || hasTestUser;
+            }
+
+            console.log('updateAuthElements - État authentification:', {
+              isAuthenticated: isAuthenticated,
+              isTestAuth: isTestAuth,
+              hasTestUser: hasTestUser,
+              appStateExists: typeof appState !== 'undefined'
+            });
+
+            // Gérer les liens de test de connexion et le message d'info
+            const loginTestLinks = document.getElementById('login-test-links');
+            const authInfoMessage = document.getElementById('auth-info-message');
+            const authStatus = document.getElementById('auth-status');
+
+            if (loginTestLinks) {
+              loginTestLinks.style.display = isAuthenticated ? 'none' : 'block';
+              console.log('Affichage des liens de test:', loginTestLinks.style.display);
+            }
+
+            if (authInfoMessage) {
+              authInfoMessage.style.display = isAuthenticated ? 'none' : 'block';
+              console.log('Affichage du message d\'info:', authInfoMessage.style.display);
+            }
+
+            // Si nous avons un utilisateur de test mais que appState n'est pas encore défini,
+            // afficher un message temporaire
+            if (isAuthenticated && authStatus && (typeof appState === 'undefined' || !appState.user)) {
+              try {
+                let userName = 'Utilisateur';
+                let userRole = 'utilisateur';
+
+                // Essayer de récupérer les infos de l'utilisateur de test
+                const storedTestUser = localStorage.getItem('SIGMA_TEST_USER');
+                if (storedTestUser) {
+                  const testUser = JSON.parse(storedTestUser);
+                  userName = testUser.displayName || 'Utilisateur';
+                  userRole = testUser.role || sessionStorage.getItem('SIGMA_AUTH_ROLE') || 'utilisateur';
+                } else if (sessionStorage.getItem('SIGMA_AUTH_ROLE')) {
+                  userRole = sessionStorage.getItem('SIGMA_AUTH_ROLE');
+                }
+
+                const roleLabel = userRole === 'admin' ? 'Administrateur' :
+                               (userRole === 'regisseur' ? 'Régisseur' : 'Utilisateur');
+
+                authStatus.innerHTML = `
+                  <div class="alert alert-success">
+                    <strong>Connecté en tant que ${userName}</strong>
+                    <span class="badge bg-${userRole === 'admin' ? 'danger' : (userRole === 'regisseur' ? 'warning' : 'success')} ms-2">${roleLabel}</span>
+                  </div>
+                `;
+              } catch (e) {
+                console.warn('Erreur lors de l\'affichage du statut d\'authentification temporaire:', e);
+              }
+            }
+          }
+
+          // Observer les changements d'état
+          if (typeof updateUI === 'function') {
+            const originalUpdateUI = updateUI;
+            updateUI = function() {
+              originalUpdateUI.apply(this, arguments);
+              updateAuthElements();
+            };
+          }
+
+          // Mise à jour initiale
+          updateAuthElements();
+
+          // Mettre à jour à nouveau après un court délai pour s'assurer que tous les éléments sont chargés
+          setTimeout(updateAuthElements, 500);
+        });
+      </script>
+
+      <p>Tableau de bord en cours de développement</p>
+
+      <!-- Liens de test pour la connexion (visibles uniquement si non connecté) -->
+      <div id="login-test-links" class="alert alert-info" role="alert">
+        <h4 class="alert-heading">Tests de connexion</h4>
+        <p>Utilisez les liens ci-dessous pour tester les différentes pages de connexion:</p>
+        <hr>
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_instant" class="btn btn-success"><strong>Connexion instantanée</strong> (recommandée)</a>
+          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_direct" class="btn btn-primary">Connexion directe</a>
+          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_new" class="btn btn-outline-primary">Nouvelle page de connexion</a>
+          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_minimal" class="btn btn-secondary">Page minimale</a>
+          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_simple" class="btn btn-outline-secondary">Page standard</a>
+        </div>
+      </div>
+
+      <!-- Message d'information sur l'authentification (visible uniquement si non connecté) -->
+      <div id="auth-info-message" class="alert alert-warning" role="alert">
+        <h4 class="alert-heading">Problème d'authentification Firebase</h4>
+        <p>Le domaine de cette application n'est pas autorisé pour l'authentification Firebase. Pour contourner ce problème, utilisez la <strong>Connexion instantanée</strong> qui ne nécessite aucune redirection.</p>
+        <hr>
+        <p class="mb-0">Cette méthode de connexion simule l'authentification sans utiliser Firebase, ce qui évite les problèmes d'autorisation Google Drive.</p>
+      </div>
+
+      <!-- Les 7 tableaux du Dashboard à implémenter -->
+      <div id="alertesStock" class="dashboard-card">
+        <h2>📢 Alertes Stock !</h2>
+        <div class="card-content">
+          <!-- Contenu dynamique -->
+        </div>
+      </div>
+
+      <!-- Autres tableaux à ajouter -->
+      <div id="materielManquant" class="dashboard-card">
+        <h2>❌ Matériel spécifique manquant</h2>
+        <div class="card-content">
+          <!-- Contenu dynamique -->
+        </div>
+      </div>
+
+      <div id="empruntsNonRevenus" class="dashboard-card">
+        <h2>🚨 Emprunts non revenus</h2>
+        <div class="card-content">
+          <!-- Contenu dynamique -->
+        </div>
+      </div>
+
+      <div id="prochainsEmprunts" class="dashboard-card">
+        <h2>📅 Prochains emprunts</h2>
+        <div class="card-content">
+          <!-- Contenu dynamique -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Pied de page -->
+    <?!= include('footer'); ?>
+  </body>
+</html>

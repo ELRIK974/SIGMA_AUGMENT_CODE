@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGMA - Tests</title>
+  <?!= include('css_styles'); ?>
+  <style>
+    .test-section {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .test-button {
+      margin: 5px;
+    }
+
+    #testResults {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .success {
+      color: #28a745;
+    }
+
+    .error {
+      color: #dc3545;
+    }
+
+    .emulator-active {
+      background-color: #ffc107;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <h1>SIGMA - Page de Test</h1>
+
+    <div id="emulatorActive" class="emulator-active">
+      ⚠️ MODE ÉMULATEUR ACTIVÉ - Les données ne sont pas persistantes
+    </div>
+
+    <div class="test-section">
+      <h2>Configuration des Émulateurs</h2>
+      <p>Activer ou désactiver le mode émulateur pour les tests de développement.</p>
+      <div>
+        <button id="enableEmulator" class="btn btn-warning test-button">Activer les Émulateurs</button>
+        <button id="disableEmulator" class="btn btn-secondary test-button">Désactiver les Émulateurs</button>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Tests Firebase</h2>
+      <p>Exécuter des tests sur la connexion Firebase et les opérations CRUD.</p>
+      <div>
+        <button id="testFirebase" class="btn btn-primary test-button">Tester la Connexion Firebase (Automatique)</button>
+        <button id="testInitialisation" class="btn btn-info test-button">Tester l'Initialisation et le Logging</button>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Tests CRUD Manuels Firestore</h2>
+      <p>Effectuer des opérations CRUD manuelles sur la collection <code>testCollection</code> via l'émulateur.</p>
+      <div>
+        <button id="createTestDoc" class="btn btn-success test-button">1. Créer un document</button>
+      </div>
+      <div class="mt-2">
+        <label for="testDocId" class="form-label">ID du document :</label>
+        <input type="text" class="form-control mb-2" id="testDocId" placeholder="L'ID du document créé apparaîtra ici">
+        <button id="readTestDoc" class="btn btn-info test-button">2. Lire le document</button>
+        <button id="updateTestDoc" class="btn btn-warning test-button">3. Mettre à jour</button>
+        <button id="deleteTestDoc" class="btn btn-danger test-button">4. Supprimer</button>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test Logging</h2>
+      <p>Générer des logs de différents niveaux pour tester l'intégration avec Cloud Operations.</p>
+      <div>
+        <button id="generateInfo" class="btn btn-info test-button">Log INFO</button>
+        <button id="generateWarning" class="btn btn-warning test-button">Log WARNING</button>
+        <button id="generateError" class="btn btn-danger test-button">Log ERROR</button>
+      </div>
+    </div>
+
+    <h3>Résultats des Tests</h3>
+    <div id="testResults">Les résultats des tests s'afficheront ici...</div>
+  </div>
+
+  <!-- Scripts de base -->
+  <?!= include('js_loggingUtils'); ?>
+
+  <!-- Scripts Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+
+  <?!= include('js_firebaseUtils'); ?>
+  <?!= include('js_testFirebase'); ?>
+
+  <!-- Script d'initialisation de la page (placé APRÈS les inclusions) -->
+  <script>
+    // Fonction pour ajouter du texte à la zone de résultats
+    function appendToResults(text, type) {
+      const resultDiv = document.getElementById('testResults');
+      const timestamp = new Date().toLocaleTimeString();
+
+      // Créer un élément pour le nouveau texte
+      const newContent = document.createElement('div');
+      if (type) {
+        newContent.className = type;
+      }
+
+      newContent.textContent = `[${timestamp}] ${text}`;
+
+      // Ajouter au début des résultats
+      if (resultDiv.firstChild) {
+        resultDiv.insertBefore(newContent, resultDiv.firstChild);
+      } else {
+        // Si la div est vide, nettoyez le texte initial
+        if (resultDiv.textContent === 'Les résultats des tests s\'afficheront ici...') {
+          resultDiv.textContent = '';
+        }
+        resultDiv.appendChild(newContent);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Le code s'exécute maintenant directement après le chargement du DOM
+      // et APRÈS l'évaluation des inclusions GAS.
+
+      // Initialiser l'application
+      // Vérifier d'abord si firebaseUtils.initFirebase existe avant de l'appeler
+      if (firebaseUtils && typeof firebaseUtils.initFirebase === 'function') { // Vérifier firebaseUtils ET la fonction
+        firebaseUtils.initFirebase().catch(error => { // Appeler AVEC le préfixe
+          appendToResults('Erreur d\'initialisation Firebase: ' + error.message, 'error');
+        });
+      } else {
+         appendToResults('Erreur critique: La fonction firebaseUtils.initFirebase n\'est pas définie. Vérifiez l\'inclusion et le contenu de js_firebaseUtils.', 'error');
+      }
+
+        // Vérifier si le mode émulateur est actif
+        const isEmulatorActive = localStorage.getItem('SIGMA_USE_EMULATORS') === 'true';
+        if (isEmulatorActive) {
+          const emulatorBanner = document.getElementById('emulatorActive');
+          if (emulatorBanner) emulatorBanner.style.display = 'block';
+        }
+
+        // Boutons pour les émulateurs
+        const enableEmulatorBtn = document.getElementById('enableEmulator');
+        if (enableEmulatorBtn) {
+          enableEmulatorBtn.addEventListener('click', function() {
+            if (typeof toggleEmulatorMode === 'function') {
+              toggleEmulatorMode(true);
+              appendToResults('Mode émulateur activé. Rafraîchissez la page pour appliquer les changements.');
+              setTimeout(() => { location.reload(); }, 2000);
+            } else {
+               appendToResults('Erreur: toggleEmulatorMode non défini.', 'error');
+            }
+          });
+        }
+
+        const disableEmulatorBtn = document.getElementById('disableEmulator');
+        if (disableEmulatorBtn) {
+          disableEmulatorBtn.addEventListener('click', function() {
+            if (typeof toggleEmulatorMode === 'function') {
+              toggleEmulatorMode(false);
+              appendToResults('Mode émulateur désactivé. Rafraîchissez la page pour appliquer les changements.');
+              setTimeout(() => { location.reload(); }, 2000);
+            } else {
+               appendToResults('Erreur: toggleEmulatorMode non défini.', 'error');
+            }
+          });
+        }
+
+        // Test Firebase
+        const testFirebaseBtn = document.getElementById('testFirebase');
+        if (testFirebaseBtn) {
+          testFirebaseBtn.addEventListener('click', async function() {
+            appendToResults('Démarrage des tests Firebase...');
+            // Vérifier si firebaseUtils.ensureFirebaseInitialized existe avant d'appeler runFirebaseTests
+            if (firebaseUtils && typeof firebaseUtils.ensureFirebaseInitialized === 'function') { // Vérifier firebaseUtils ET la fonction
+                try {
+                    await firebaseUtils.ensureFirebaseInitialized(); // Appeler AVEC le préfixe // S'assurer que Firebase est prêt
+                    if (typeof runFirebaseTests === 'function') {
+                        const testResults = await runFirebaseTests();
+
+                        // Construire un rapport structuré
+                        let report = [];
+                        report.push('Tests terminés:');
+                        report.push(`- Initialisation: ${testResults.initialization ? '✅' : '❌'}`);
+                        report.push(`- Opérations CRUD:`);
+                        report.push(`  - Création: ${testResults.document.creation ? '✅' : '❌'}`);
+                        report.push(`  - Lecture: ${testResults.document.reading ? '✅' : '❌'}`);
+                        report.push(`  - Mise à jour: ${testResults.document.update ? '✅' : '❌'}`);
+                        report.push(`  - Suppression: ${testResults.document.deletion ? '✅' : '❌'}`);
+                        report.push(`- Requête: ${testResults.query ? '✅' : '❌'}`);
+                        report.push(`- Transaction: ${testResults.transaction ? '✅' : '❌'}`);
+
+                        if (testResults.errors.length > 0) {
+                          report.push('\nErreurs rencontrées:');
+                          testResults.errors.forEach((error, index) => {
+                            report.push(`${index + 1}. [${error.stage}] ${error.error}`);
+                          });
+                        }
+
+                        appendToResults(report.join('\n'));
+                    } else {
+                         appendToResults('Erreur: runFirebaseTests non défini. Vérifiez l\'inclusion de js_testFirebase.', 'error');
+                    }
+                } catch (error) {
+                    appendToResults('Erreur lors de l\'exécution des tests (ensureFirebaseInitialized ou runFirebaseTests): ' + error.message, 'error');
+                }
+            } else {
+                 appendToResults('Erreur critique: La fonction firebaseUtils.ensureFirebaseInitialized n\'est pas définie. Vérifiez js_firebaseUtils.', 'error');
+            }
+          });
+        }
+
+        // Bouton de test d'initialisation et logging
+        const testInitialisationBtn = document.getElementById('testInitialisation');
+        if (testInitialisationBtn) {
+          testInitialisationBtn.addEventListener('click', async function() {
+            appendToResults('Démarrage du test d\'initialisation et de logging...');
+            if (firebaseUtils && typeof firebaseUtils.testInitialisation === 'function') {
+              try {
+                const testResults = await firebaseUtils.testInitialisation();
+
+                // Construire un rapport structuré
+                let report = [];
+                report.push('Test d\'initialisation terminé:');
+                report.push(`- Firebase initialisé: ${testResults.firebaseInitialized ? '✅' : '❌'}`);
+                report.push(`- Connexion Firestore: ${testResults.firestoreConnected ? '✅' : '❌'}`);
+                report.push(`- Service Auth disponible: ${testResults.authServiceAvailable ? '✅' : '❌'}`);
+                report.push(`- Tests de logging:`);
+                report.push(`  - INFO: ${testResults.loggingTest.info ? '✅' : '❌'}`);
+                report.push(`  - WARNING: ${testResults.loggingTest.warning ? '✅' : '❌'}`);
+                report.push(`  - ERROR: ${testResults.loggingTest.error ? '✅' : '❌'}`);
+
+                if (testResults.errors.length > 0) {
+                  report.push('\nErreurs rencontrées:');
+                  testResults.errors.forEach((error, index) => {
+                    report.push(`${index + 1}. [${error.stage}] ${error.error}`);
+                  });
+                }
+
+                appendToResults(report.join('\n'));
+                appendToResults('Vérifiez Google Cloud Logging (Stackdriver) pour confirmer que les logs ont bien été envoyés.', 'info');
+              } catch (error) {
+                appendToResults(`Erreur lors du test d'initialisation: ${error.message}`, 'error');
+              }
+            } else {
+              appendToResults('Erreur: La fonction firebaseUtils.testInitialisation n\'est pas définie. Vérifiez js_firebaseUtils.', 'error');
+            }
+          });
+        }
+
+        // Tests de logging (vérifier l'existence des fonctions avant d'attacher les écouteurs)
+        const generateInfoBtn = document.getElementById('generateInfo');
+        if (generateInfoBtn && typeof logInfo === 'function') {
+          generateInfoBtn.addEventListener('click', function() {
+            logInfo('Test de log INFO depuis la page de test', { source: 'page_test', timestamp: new Date().toISOString() });
+            appendToResults('Log INFO généré.');
+          });
+        } else if (generateInfoBtn) {
+           generateInfoBtn.addEventListener('click', () => appendToResults('Erreur: logInfo non défini.', 'error'));
+        }
+
+        const generateWarningBtn = document.getElementById('generateWarning');
+        if (generateWarningBtn && typeof logWarning === 'function') {
+          generateWarningBtn.addEventListener('click', function() {
+            logWarning('Test de log WARNING depuis la page de test', { source: 'page_test', timestamp: new Date().toISOString() });
+            appendToResults('Log WARNING généré.');
+          });
+        } else if (generateWarningBtn) {
+           generateWarningBtn.addEventListener('click', () => appendToResults('Erreur: logWarning non défini.', 'error'));
+        }
+
+        const generateErrorBtn = document.getElementById('generateError');
+        if (generateErrorBtn && typeof logError === 'function') {
+          generateErrorBtn.addEventListener('click', function() {
+            logError('Test de log ERROR depuis la page de test', { source: 'page_test', timestamp: new Date().toISOString() });
+            appendToResults('Log ERROR généré.');
+          });
+        } else if (generateErrorBtn) {
+           generateErrorBtn.addEventListener('click', () => appendToResults('Erreur: logError non défini.', 'error'));
+        }
+
+        // --- Écouteurs pour les tests CRUD Manuels ---
+        let currentTestDocId = null; // Pour stocker l'ID du dernier doc créé
+        const testDocIdInput = document.getElementById('testDocId');
+
+        // Vérifier l'existence des fonctions CRUD avant d'attacher les écouteurs
+        const createTestDocBtn = document.getElementById('createTestDoc');
+        if (createTestDocBtn) {
+          if (typeof createTestData === 'function') {
+            createTestDocBtn.addEventListener('click', async () => {
+              appendToResults('Tentative de création de document...');
+              const docId = await createTestData();
+              if (docId) {
+                currentTestDocId = docId;
+                if (testDocIdInput) testDocIdInput.value = docId; // Afficher l'ID dans l'input
+              }
+            });
+          } else {
+             createTestDocBtn.addEventListener('click', () => appendToResults('Erreur: createTestData non défini.', 'error'));
+          }
+        }
+
+        const readTestDocBtn = document.getElementById('readTestDoc');
+        if (readTestDocBtn) {
+          if (typeof readTestData === 'function') {
+            readTestDocBtn.addEventListener('click', async () => {
+              const docId = testDocIdInput ? testDocIdInput.value : null || currentTestDocId;
+              if (!docId) {
+                appendToResults('Veuillez d\'abord créer un document ou entrer un ID.', 'error');
+                return;
+              }
+              appendToResults(`Tentative de lecture du document ${docId}...`);
+              await readTestData(docId);
+            });
+          } else {
+             readTestDocBtn.addEventListener('click', () => appendToResults('Erreur: readTestData non défini.', 'error'));
+          }
+        }
+
+        const updateTestDocBtn = document.getElementById('updateTestDoc');
+        if (updateTestDocBtn) {
+          if (typeof updateTestData === 'function') {
+            updateTestDocBtn.addEventListener('click', async () => {
+              const docId = testDocIdInput ? testDocIdInput.value : null || currentTestDocId;
+               if (!docId) {
+                appendToResults('Veuillez d\'abord créer un document ou entrer un ID.', 'error');
+                return;
+              }
+              appendToResults(`Tentative de mise à jour du document ${docId}...`);
+              await updateTestData(docId);
+            });
+          } else {
+             updateTestDocBtn.addEventListener('click', () => appendToResults('Erreur: updateTestData non défini.', 'error'));
+          }
+        }
+
+        const deleteTestDocBtn = document.getElementById('deleteTestDoc');
+        if (deleteTestDocBtn) {
+          if (typeof deleteTestData === 'function') {
+            deleteTestDocBtn.addEventListener('click', async () => {
+              const docId = testDocIdInput ? testDocIdInput.value : null || currentTestDocId;
+               if (!docId) {
+                appendToResults('Veuillez d\'abord créer un document ou entrer un ID.', 'error');
+                return;
+              }
+              appendToResults(`Tentative de suppression du document ${docId}...`);
+              const success = await deleteTestData(docId);
+              if (success && docId === currentTestDocId) {
+                 // Optionnel: vider l'input si le document actuel est supprimé
+                 if (testDocIdInput) testDocIdInput.value = '';
+                 currentTestDocId = null;
+              }
+            });
+          } else {
+             deleteTestDocBtn.addEventListener('click', () => appendToResults('Erreur: deleteTestData non défini.', 'error'));
+          }
+        }
+        // --- Fin des écouteurs CRUD ---
+
+
+    }); // Fin de DOMContentLoaded
+  </script>
+</body>
+</html>
