@@ -26,80 +26,61 @@ function doGet(e) {
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
 
-    // Page à afficher (par défaut: index)
-    let page = 'index';
-    let fallbackToErrorPage = false;
+    // --- DÉBUT DU BLOC REMPLACÉ ---
+    let pageToServe = 'index'; // Page par défaut
 
-    // Vérifier si une page spécifique est demandée
     if (e && e.parameter && e.parameter.page) {
-      // Valider le paramètre pour éviter les injections
       const requestedPage = e.parameter.page.replace(/[^a-zA-Z0-9_-]/g, '');
-
       console.log(`Page demandée: ${requestedPage}`);
 
-      // Vérifier si la page demandée existe
+      let filePath;
+      // *** Définir explicitement les chemins pour les pages dans des sous-dossiers ***
+      if (requestedPage === 'login') {
+        filePath = 'html/login'; // CORRECTION : Pointer vers html/login.html
+      } else if (requestedPage === 'admin_users') {
+         filePath = 'html/admin/users'; // ASSUMPTION : admin_users.html est dans html/admin/
+                                         // Si ce n'est pas le cas, ajuste ce chemin !
+      } else {
+        // Pour les autres pages (index, emprunts, stocks, modules, etc.)
+        // Supposer qu'elles sont à la racine de src/
+        filePath = requestedPage;
+      }
+
       try {
-        // Tenter de récupérer le fichier pour vérifier s'il existe
-        const template = HtmlService.createTemplateFromFile(requestedPage);
-        page = requestedPage;
-        console.log(`Page trouvée et définie: ${page}`);
-
-        // Log détaillé pour le débogage
-        if (page.includes('login')) {
-          console.log(`Détails de la page de connexion ${page}:`);
-          console.log(`- Type: ${typeof template}`);
-          console.log(`- Contenu disponible: ${template !== null && template !== undefined}`);
-        }
+        console.log(`Tentative de chargement du template depuis: ${filePath}`);
+        // Vérifier l'existence du fichier via createTemplateFromFile
+        HtmlService.createTemplateFromFile(filePath);
+        pageToServe = filePath; // Le chemin est valide, on l'utilise
+        console.log(`Page à servir définie sur: ${pageToServe}`);
       } catch (error) {
-        // Si la page n'existe pas, conserver la page par défaut
-        console.error(`Page demandée non trouvée: ${requestedPage}`, error);
-
-        // Gestion spéciale pour la page de connexion
-        if (requestedPage === 'login') {
-          try {
-            // Charger directement le fichier html/login.html
-            console.log('Chargement de html/login.html');
-            const loginTemplate = HtmlService.createTemplateFromFile('html/login');
-            page = 'html/login';
-            console.log('Chargement de html/login.html réussi');
-            fallbackToErrorPage = false;
-          } catch (loginError) {
-            console.error('Erreur lors du chargement de html/login.html:', loginError);
-            fallbackToErrorPage = true;
-          }
-        } else {
-          fallbackToErrorPage = true;
-        }
+        console.error(`Impossible de trouver ou charger le fichier template: ${filePath}`, error);
+        // Si le fichier demandé n'est pas trouvé, afficher une page d'erreur
+        return createErrorPage('Page non trouvée',
+                               `La page demandée (${requestedPage}) n'existe pas ou n'est pas accessible. Chemin tenté: ${filePath}`,
+                               'Retourner à l\'accueil');
       }
     }
+    // --- FIN DU BLOC REMPLACÉ ---
 
-    // Log pour le suivi des accès (utile pour le debugging et statistiques)
-    console.log(`Accès à l'application - Page: ${page}`);
-
-    // Si une erreur s'est produite et qu'on doit afficher la page d'erreur
-    if (fallbackToErrorPage) {
-      return createErrorPage('Page non trouvée',
-                           'La page demandée n\'existe pas ou n\'est pas accessible.',
-                           'Retourner à l\'accueil');
-    }
+    console.log(`Accès à l'application - Page servie: ${pageToServe}`);
 
     // Créer et retourner la page HTML
-    console.log(`Création de la page HTML à partir du fichier: ${page}`);
+    console.log(`Création de la page HTML à partir du fichier: ${pageToServe}`);
     try {
-      const template = HtmlService.createTemplateFromFile(page);
-      console.log(`Template créé avec succès pour ${page}`);
+      const template = HtmlService.createTemplateFromFile(pageToServe);
+      console.log(`Template créé avec succès pour ${pageToServe}`);
 
       const evaluated = template.evaluate();
-      console.log(`Template évalué avec succès pour ${page}`);
+      console.log(`Template évalué avec succès pour ${pageToServe}`);
 
       return evaluated
         .setTitle('SIGMA - Système Informatique de Gestion du Matériel')
         .addMetaTag('viewport', 'width=device-width, initial-scale=1')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     } catch (error) {
-      console.error(`Erreur lors de la création/évaluation du template pour ${page}:`, error);
+      console.error(`Erreur lors de la création/évaluation du template pour ${pageToServe}:`, error);
       return createErrorPage('Erreur de chargement',
-                           `Impossible de charger la page ${page}. Erreur: ${error.message}`,
+                           `Impossible de charger la page ${pageToServe}. Erreur: ${error.message}`,
                            'Retourner à l\'accueil');
     }
   } catch (error) {

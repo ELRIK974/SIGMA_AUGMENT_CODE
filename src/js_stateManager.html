@@ -104,6 +104,12 @@ function updateAuthUI() {
   const authStatusElement = document.getElementById('auth-status');
   const authActionsElement = document.getElementById('auth-actions');
 
+  // Récupérer les sections de contenu
+  const loginSection = document.getElementById('login-section');
+  const dashboardContent = document.getElementById('dashboard-content');
+  const loginTestLinks = document.getElementById('login-test-links');
+  const authInfoMessage = document.getElementById('auth-info-message');
+
   // Déterminer si l'utilisateur est authentifié
   // Utiliser directement appState.isAuthenticated qui est maintenant correctement géré par updateState
   const isAuthenticated = appState.isAuthenticated;
@@ -121,6 +127,25 @@ function updateAuthUI() {
   if (directLogout) {
     directLogout.style.display = isAuthenticated ? 'block' : 'none';
     console.log('Bouton déconnexion mis à jour:', directLogout.style.display);
+  }
+
+  // Mettre à jour l'affichage des sections de contenu
+  // La section de connexion a été supprimée, donc nous n'avons plus besoin de la gérer
+
+  if (dashboardContent) {
+    dashboardContent.style.display = isAuthenticated ? 'block' : 'none';
+    console.log('Contenu du dashboard mis à jour:', dashboardContent.style.display);
+  }
+
+  // Toujours masquer les liens de test et le message d'info, qu'importe l'état d'authentification
+  if (loginTestLinks) {
+    loginTestLinks.style.display = 'none';
+    console.log('Liens de test masqués');
+  }
+
+  if (authInfoMessage) {
+    authInfoMessage.style.display = 'none';
+    console.log('Message d\'info masqué');
   }
 
   // Mettre à jour les éléments de statut d'authentification
@@ -148,28 +173,77 @@ function updateAuthUI() {
 
   // Mettre à jour les actions d'authentification
   if (authActionsElement) {
-    if (isAuthenticated) {
-      authActionsElement.innerHTML = `
-        <button id="logout-button" class="btn btn-outline-danger">
-          <i class="bi bi-box-arrow-right"></i> Déconnexion
-        </button>
-      `;
+    // Vérifier si nous sommes sur la page principale (dashboard)
+    // Pour éviter les boutons dupliqués, nous n'affichons les boutons de connexion/déconnexion
+    // dans authActionsElement que si nous sommes sur la page principale
+    const isMainPage = !window.location.search.includes('page=');
 
-      // Ajouter l'événement de déconnexion
-      const logoutButton = document.getElementById('logout-button');
-      if (logoutButton) {
-        logoutButton.addEventListener('click', function() {
-          if (typeof signOut === 'function') {
-            signOut();
-          }
-        });
+    if (isMainPage) {
+      if (isAuthenticated) {
+        authActionsElement.innerHTML = `
+          <button id="logout-button-main" class="btn btn-outline-danger">
+            <i class="bi bi-box-arrow-right"></i> Déconnexion
+          </button>
+        `;
+
+        // Ajouter l'événement de déconnexion
+        const logoutButton = document.getElementById('logout-button-main');
+        if (logoutButton) {
+          logoutButton.addEventListener('click', function() {
+            if (typeof signOut === 'function') {
+              signOut();
+            }
+          });
+        }
+      } else {
+        authActionsElement.innerHTML = `
+          <button id="login-button-main" class="btn btn-primary">
+            <i class="bi bi-google me-2"></i> Se connecter avec Google
+          </button>
+        `;
+
+        // Ajouter l'événement de connexion
+        const loginButton = document.getElementById('login-button-main');
+        if (loginButton) {
+          loginButton.addEventListener('click', function() {
+            if (typeof signInWithGoogle === 'function') {
+              // Afficher un indicateur de chargement
+              const loadingMsg = document.createElement('div');
+              loadingMsg.className = 'alert alert-info fixed-top m-3';
+              loadingMsg.innerHTML = '<strong>Connexion en cours...</strong>';
+              document.body.appendChild(loadingMsg);
+
+              signInWithGoogle()
+                .then(() => {
+                  console.log('Connexion réussie');
+                  loadingMsg.className = 'alert alert-success fixed-top m-3';
+                  loadingMsg.innerHTML = '<strong>Connexion réussie!</strong>';
+
+                  // Supprimer la notification après un court délai
+                  setTimeout(function() {
+                    loadingMsg.remove();
+                  }, 2000);
+                })
+                .catch(error => {
+                  console.error('Erreur lors de la connexion:', error);
+                  loadingMsg.className = 'alert alert-danger fixed-top m-3';
+                  loadingMsg.innerHTML = `<strong>Erreur de connexion!</strong> ${error.message || 'Veuillez réessayer.'}`;
+
+                  // Supprimer la notification après un court délai
+                  setTimeout(function() {
+                    loadingMsg.remove();
+                  }, 5000);
+                });
+            } else {
+              console.error('Fonction signInWithGoogle non disponible');
+              alert('Fonction de connexion non disponible. Veuillez rafraîchir la page.');
+            }
+          });
+        }
       }
     } else {
-      authActionsElement.innerHTML = `
-        <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login" class="btn btn-primary">
-          <i class="bi bi-box-arrow-in-right"></i> Connexion
-        </a>
-      `;
+      // Sur les autres pages, ne pas afficher de boutons dans authActionsElement
+      authActionsElement.innerHTML = '';
     }
   }
 }

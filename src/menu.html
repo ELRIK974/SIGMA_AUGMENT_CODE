@@ -36,17 +36,8 @@
     </li>
 
     <!-- Lien de connexion - visible uniquement si non connecté -->
-    <li id="login-menu" style="display: none;" class="dropdown">
-      <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">Connexion</a>
-      <ul class="dropdown-menu">
-        <li><a href="#" onclick="loadPage('login_instant')" class="dropdown-item"><strong>Connexion instantanée</strong></a></li>
-        <li><a href="#" onclick="loadPage('login_direct')" class="dropdown-item">Connexion directe</a></li>
-        <li><hr class="dropdown-divider"></li>
-        <li><a href="#" onclick="loadPage('login_new')" class="dropdown-item">Nouvelle connexion</a></li>
-        <li><a href="#" onclick="loadPage('login_simple')" class="dropdown-item">Connexion standard</a></li>
-        <li><a href="#" onclick="loadPage('login_minimal')" class="dropdown-item">Connexion minimale</a></li>
-        <li><a href="#" onclick="loadPage('test_login')" class="dropdown-item">Test de connexion</a></li>
-      </ul>
+    <li id="login-menu" style="display: none;">
+      <a href="#" onclick="loadPage('login_instant')" class="nav-link"><i class="bi bi-box-arrow-in-right"></i> Connexion</a>
     </li>
   </ul>
 </nav>
@@ -131,7 +122,8 @@
     const directLogout = document.getElementById('direct-logout');
 
     // Déterminer si l'utilisateur est authentifié
-    const isAuthenticated = appState.isAuthenticated || appState.user !== null;
+    // Utiliser uniquement appState.isAuthenticated pour être cohérent avec updateAuthUI()
+    const isAuthenticated = appState.isAuthenticated;
 
     console.log('État d\'authentification:', isAuthenticated ? 'Connecté' : 'Non connecté');
     console.log('Rôle utilisateur:', appState.userRole || 'Non défini');

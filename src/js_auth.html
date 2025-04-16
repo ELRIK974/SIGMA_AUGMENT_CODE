@@ -94,6 +94,14 @@ async function initAuth() {
       return;
     }
 
+    // Vérifier s'il y a un résultat de redirection à traiter
+    try {
+      await checkRedirectResult();
+    } catch (redirectError) {
+      logWarning('Erreur lors de la vérification du résultat de redirection', redirectError);
+      // Continuer quand même avec l'authentification normale
+    }
+
     auth.onAuthStateChanged(user => {
       if (user) {
         // Utilisateur connecté
@@ -140,16 +148,51 @@ async function signInWithGoogle() {
   if (typeof document === 'undefined') return Promise.reject("Environnement non-navigateur");
 
   try {
+    // Ajouter des logs de débogage
+    console.log('Tentative de connexion avec Google - Début de la fonction signInWithGoogle');
+
+    // Vérifier si Firebase est initialisé
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      console.error('Firebase ou firebase.auth n\'est pas disponible');
+      return Promise.reject("Firebase n'est pas correctement initialisé");
+    }
+
     const auth = await getAuthInstance();
+    console.log('Instance Auth récupérée:', !!auth);
 
     if (!auth) {
+      console.error('Instance Auth non disponible');
       return Promise.reject("Instance Auth non disponible");
     }
 
+    // Créer le provider Google
+    console.log('Création du provider Google');
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    return auth.signInWithPopup(provider)
+    // Ajouter des scopes si nécessaire
+    provider.addScope('email');
+    provider.addScope('profile');
+
+    console.log('Appel de signInWithPopup');
+
+    // Vérifier si nous devons utiliser la redirection au lieu du popup
+    // Vous pouvez ajouter un paramètre URL ou une préférence utilisateur pour basculer entre les deux méthodes
+    const urlParams = new URLSearchParams(window.location.search);
+    const useRedirect = urlParams.get('use_redirect') === '1';
+
+    if (useRedirect) {
+      console.log('Utilisation de signInWithRedirect au lieu de signInWithPopup');
+      return auth.signInWithRedirect(provider)
+        .then(() => {
+          console.log('Redirection vers Google en cours...');
+          // Cette promesse ne sera jamais résolue car la page sera redirigée
+          return null;
+        });
+    } else {
+      // Méthode par défaut avec popup
+      return auth.signInWithPopup(provider)
       .then(result => {
+        console.log('Connexion réussie avec Google');
         logInfo('Connexion réussie avec Google', {
           email: result.user.email,
           displayName: result.user.displayName
@@ -158,7 +201,56 @@ async function signInWithGoogle() {
       })
       .catch(error => {
         logError('Erreur de connexion avec Google', error);
+
+        // Conserver la notification existante pour la cohérence de l'UI
         showNotification('Erreur lors de la connexion: ' + error.message, 'error');
+
+        // Afficher l'erreur dans l'élément #login-error si nous sommes sur la page de connexion
+        const errorElement = document.getElementById('login-error');
+        if (errorElement) {
+          // Déterminer un message d'erreur adapté à l'utilisateur en fonction du code d'erreur
+          let userMessage = 'Une erreur est survenue lors de la connexion. Veuillez réessayer.';
+
+          // Personnaliser le message en fonction du code d'erreur
+          if (error.code) {
+            switch (error.code) {
+              case 'auth/popup-closed-by-user':
+                userMessage = 'La fenêtre de connexion a été fermée avant la fin du processus. Veuillez réessayer.';
+                break;
+              case 'auth/popup-blocked':
+                userMessage = 'La fenêtre de connexion a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site et réessayer.';
+                break;
+              case 'auth/cancelled-popup-request':
+                userMessage = 'La demande de connexion a été annulée. Veuillez réessayer.';
+                break;
+              case 'auth/network-request-failed':
+                userMessage = 'Problème de connexion réseau. Veuillez vérifier votre connexion internet et réessayer.';
+                break;
+              case 'auth/user-disabled':
+                userMessage = 'Ce compte utilisateur a été désactivé. Veuillez contacter l\'administrateur.';
+                break;
+              case 'auth/account-exists-with-different-credential':
+                userMessage = 'Un compte existe déjà avec cette adresse email mais avec une méthode de connexion différente.';
+                break;
+              case 'auth/operation-not-allowed':
+                userMessage = 'La connexion avec Google n\'est pas activée pour cette application. Veuillez contacter l\'administrateur.';
+                break;
+              case 'auth/timeout':
+                userMessage = 'La connexion a expiré. Veuillez réessayer.';
+                break;
+              default:
+                // Utiliser le message d'erreur de Firebase si disponible, sinon message générique
+                userMessage = error.message || userMessage;
+            }
+          }
+
+          // Mettre à jour le contenu de l'élément d'erreur
+          errorElement.textContent = userMessage;
+
+          // Rendre l'élément d'erreur visible
+          errorElement.classList.remove('d-none');
+        }
+
         throw error;
       });
   } catch (error) {
@@ -231,15 +323,12 @@ async function signOut() {
 
       // Afficher une notification de succès
       loadingMsg.className = 'alert alert-success fixed-top m-3';
-      loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong> Redirection en cours...';
+      loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong>';
 
-      // Rediriger vers la page de connexion après un court délai
+      // Supprimer la notification après un court délai
       setTimeout(function() {
-        console.log('Redirection vers la page de connexion...');
-        // Rediriger vers la page de connexion principale
-        const baseUrl = window.location.href.split('?')[0];
-        window.location.href = baseUrl + '?page=login';
-      }, 1000);
+        loadingMsg.remove();
+      }, 3000);
 
       return Promise.resolve();
     }
@@ -253,14 +342,12 @@ async function signOut() {
 
       // Afficher une notification d'erreur
       loadingMsg.className = 'alert alert-warning fixed-top m-3';
-      loadingMsg.innerHTML = '<strong>Erreur Firebase!</strong> Redirection en cours...';
+      loadingMsg.innerHTML = '<strong>Erreur Firebase!</strong> Déconnexion effectuée localement.';
 
-      // Rediriger quand même
+      // Supprimer la notification après un court délai
       setTimeout(function() {
-        // Rediriger vers la page de connexion
-        const baseUrl = window.location.href.split('?')[0];
-        window.location.href = baseUrl + '?page=login';
-      }, 1000);
+        loadingMsg.remove();
+      }, 3000);
 
       return Promise.reject("Instance Auth non disponible");
     }
@@ -274,15 +361,12 @@ async function signOut() {
 
         // Mettre à jour la notification
         loadingMsg.className = 'alert alert-success fixed-top m-3';
-        loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong> Redirection en cours...';
+        loadingMsg.innerHTML = '<strong>Déconnexion réussie!</strong>';
 
-        // Rediriger vers la page de connexion après un court délai
+        // Supprimer la notification après un court délai
         setTimeout(function() {
-          console.log('Redirection vers la page de connexion...');
-          // Rediriger vers la page de connexion
-          const baseUrl = window.location.href.split('?')[0];
-          window.location.href = baseUrl + '?page=login';
-        }, 1000);
+          loadingMsg.remove();
+        }, 3000);
       })
       .catch(error => {
         logError('Erreur de déconnexion Firebase', error);
@@ -292,27 +376,31 @@ async function signOut() {
 
         // Mettre à jour la notification
         loadingMsg.className = 'alert alert-warning fixed-top m-3';
-        loadingMsg.innerHTML = '<strong>Erreur lors de la déconnexion!</strong> Redirection en cours...';
+        loadingMsg.innerHTML = '<strong>Erreur lors de la déconnexion!</strong> Déconnexion effectuée localement.';
 
-        // Rediriger quand même
+        // Supprimer la notification après un court délai
         setTimeout(function() {
-          // Rediriger vers la page de connexion
-          const baseUrl = window.location.href.split('?')[0];
-          window.location.href = baseUrl + '?page=login';
-        }, 1000);
+          loadingMsg.remove();
+        }, 3000);
 
         throw error;
       });
   } catch (error) {
     logError('Erreur lors de l\'initialisation de l\'authentification pour la déconnexion', error);
 
-    // Tenter une redirection directe en dernier recours
+    // Afficher une notification d'erreur en dernier recours
     try {
-      // Rediriger vers la page de connexion
-      const baseUrl = window.location.href.split('?')[0];
-      window.location.href = baseUrl + '?page=login';
+      const errorMsg = document.createElement('div');
+      errorMsg.className = 'alert alert-danger fixed-top m-3';
+      errorMsg.innerHTML = '<strong>Erreur lors de la déconnexion!</strong> Veuillez rafraîchir la page.';
+      document.body.appendChild(errorMsg);
+
+      // Supprimer la notification après un court délai
+      setTimeout(function() {
+        errorMsg.remove();
+      }, 5000);
     } catch (e) {
-      console.error('Impossible de rediriger après erreur:', e);
+      console.error('Impossible d\'afficher la notification d\'erreur:', e);
     }
 
     return Promise.reject(error);
@@ -429,5 +517,49 @@ function hasRole(requiredRole) {
   }
 
   return false;
+}
+
+// Vérifier le résultat de la redirection après signInWithRedirect
+async function checkRedirectResult() {
+  try {
+    console.log('Vérification du résultat de redirection');
+    const auth = await getAuthInstance();
+
+    if (!auth) {
+      console.error('Instance Auth non disponible dans checkRedirectResult');
+      return;
+    }
+
+    const result = await auth.getRedirectResult();
+
+    if (result.user) {
+      console.log('Connexion par redirection réussie');
+      logInfo('Connexion réussie avec Google (redirection)', {
+        email: result.user.email,
+        displayName: result.user.displayName
+      });
+
+      // Mettre à jour l'interface utilisateur
+      updateState({ user: {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL
+      }});
+
+      // Vérifier les rôles de l'utilisateur
+      getUserRole(result.user);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la vérification du résultat de redirection', error);
+    logError('Erreur lors de la vérification du résultat de redirection', error);
+
+    // Afficher l'erreur dans l'élément #login-error si nous sommes sur la page de connexion
+    const errorElement = document.getElementById('login-error');
+    if (errorElement) {
+      errorElement.textContent = error.message || 'Erreur lors de la connexion avec Google';
+      errorElement.classList.remove('d-none');
+    }
+  }
 }
 </script>

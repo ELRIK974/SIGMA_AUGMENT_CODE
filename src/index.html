@@ -112,14 +112,15 @@
             const authInfoMessage = document.getElementById('auth-info-message');
             const authStatus = document.getElementById('auth-status');
 
+            // Toujours masquer les liens de test et le message d'info, qu'importe l'état d'authentification
             if (loginTestLinks) {
-              loginTestLinks.style.display = isAuthenticated ? 'none' : 'block';
-              console.log('Affichage des liens de test:', loginTestLinks.style.display);
+              loginTestLinks.style.display = 'none';
+              console.log('Liens de test masqués');
             }
 
             if (authInfoMessage) {
-              authInfoMessage.style.display = isAuthenticated ? 'none' : 'block';
-              console.log('Affichage du message d\'info:', authInfoMessage.style.display);
+              authInfoMessage.style.display = 'none';
+              console.log('Message d\'info masqué');
             }
 
             // Si nous avons un utilisateur de test mais que appState n'est pas encore défini,
@@ -168,60 +169,48 @@
 
           // Mettre à jour à nouveau après un court délai pour s'assurer que tous les éléments sont chargés
           setTimeout(updateAuthElements, 500);
+
+          // Le gestionnaire d'événement pour le bouton de connexion Google a été supprimé
+          // car la section de connexion a été retirée (bouton dans auth-actions utilisé à la place)
         });
       </script>
 
       <p>Tableau de bord en cours de développement</p>
 
-      <!-- Liens de test pour la connexion (visibles uniquement si non connecté) -->
-      <div id="login-test-links" class="alert alert-info" role="alert">
-        <h4 class="alert-heading">Tests de connexion</h4>
-        <p>Utilisez les liens ci-dessous pour tester les différentes pages de connexion:</p>
-        <hr>
-        <div class="d-flex gap-2 flex-wrap">
-          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_instant" class="btn btn-success"><strong>Connexion instantanée</strong> (recommandée)</a>
-          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_direct" class="btn btn-primary">Connexion directe</a>
-          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_new" class="btn btn-outline-primary">Nouvelle page de connexion</a>
-          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_minimal" class="btn btn-secondary">Page minimale</a>
-          <a href="<?= ScriptApp.getService().getUrl(); ?>?page=login_simple" class="btn btn-outline-secondary">Page standard</a>
+      <!-- Les sections de test et d'information ont été supprimées pour simplifier l'interface -->
+
+      <!-- La section de connexion a été supprimée car redondante avec le bouton dans auth-actions -->
+
+      <!-- Contenu du Dashboard (affiché uniquement lorsque l'utilisateur est connecté) -->
+      <div id="dashboard-content">
+        <!-- Les 7 tableaux du Dashboard à implémenter -->
+        <div id="alertesStock" class="dashboard-card">
+          <h2>📢 Alertes Stock !</h2>
+          <div class="card-content">
+            <!-- Contenu dynamique -->
+          </div>
         </div>
-      </div>
 
-      <!-- Message d'information sur l'authentification (visible uniquement si non connecté) -->
-      <div id="auth-info-message" class="alert alert-warning" role="alert">
-        <h4 class="alert-heading">Problème d'authentification Firebase</h4>
-        <p>Le domaine de cette application n'est pas autorisé pour l'authentification Firebase. Pour contourner ce problème, utilisez la <strong>Connexion instantanée</strong> qui ne nécessite aucune redirection.</p>
-        <hr>
-        <p class="mb-0">Cette méthode de connexion simule l'authentification sans utiliser Firebase, ce qui évite les problèmes d'autorisation Google Drive.</p>
-      </div>
-
-      <!-- Les 7 tableaux du Dashboard à implémenter -->
-      <div id="alertesStock" class="dashboard-card">
-        <h2>📢 Alertes Stock !</h2>
-        <div class="card-content">
-          <!-- Contenu dynamique -->
+        <!-- Autres tableaux à ajouter -->
+        <div id="materielManquant" class="dashboard-card">
+          <h2>❌ Matériel spécifique manquant</h2>
+          <div class="card-content">
+            <!-- Contenu dynamique -->
+          </div>
         </div>
-      </div>
 
-      <!-- Autres tableaux à ajouter -->
-      <div id="materielManquant" class="dashboard-card">
-        <h2>❌ Matériel spécifique manquant</h2>
-        <div class="card-content">
-          <!-- Contenu dynamique -->
+        <div id="empruntsNonRevenus" class="dashboard-card">
+          <h2>🚨 Emprunts non revenus</h2>
+          <div class="card-content">
+            <!-- Contenu dynamique -->
+          </div>
         </div>
-      </div>
 
-      <div id="empruntsNonRevenus" class="dashboard-card">
-        <h2>🚨 Emprunts non revenus</h2>
-        <div class="card-content">
-          <!-- Contenu dynamique -->
-        </div>
-      </div>
-
-      <div id="prochainsEmprunts" class="dashboard-card">
-        <h2>📅 Prochains emprunts</h2>
-        <div class="card-content">
-          <!-- Contenu dynamique -->
+        <div id="prochainsEmprunts" class="dashboard-card">
+          <h2>📅 Prochains emprunts</h2>
+          <div class="card-content">
+            <!-- Contenu dynamique -->
+          </div>
         </div>
       </div>
     </div>

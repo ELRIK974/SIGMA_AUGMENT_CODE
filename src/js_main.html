@@ -152,12 +152,20 @@ async function checkAuth() {
       }
 
       // Sinon, continuer avec l'authentification Firebase normale
-      const auth = await getAuthInstance();
+      // Utiliser directement firebaseUtils.getFirebaseAuth() au lieu de getAuthInstance()
+      let auth;
+      try {
+        auth = await firebaseUtils.getFirebaseAuth();
 
-      if (!auth) {
-        // Firebase pas encore prêt, résoudre quand même pour ne pas bloquer l'UI
-        logWarning('Auth non initialisée lors de checkAuth');
-        resolve();
+        if (!auth) {
+          // Firebase pas encore prêt, résoudre quand même pour ne pas bloquer l'UI
+          logWarning('Auth non initialisée lors de checkAuth');
+          resolve();
+          return;
+        }
+      } catch (authError) {
+        logError('Erreur lors de la récupération de l\'instance Auth', authError);
+        resolve(); // Résoudre quand même pour ne pas bloquer l'UI
         return;
       }
 
