@@ -56,15 +56,15 @@ function doGet(e) {
 
         // Gestion spéciale pour la page de connexion
         if (requestedPage === 'login') {
-          // Utiliser directement login.html à la racine
           try {
-            console.log('Tentative de chargement de login.html à la racine');
-            const loginTemplate = HtmlService.createTemplateFromFile('login');
-            page = 'login';
-            console.log('Chargement de login.html réussi');
+            // Charger directement le fichier html/login.html
+            console.log('Chargement de html/login.html');
+            const loginTemplate = HtmlService.createTemplateFromFile('html/login');
+            page = 'html/login';
+            console.log('Chargement de html/login.html réussi');
             fallbackToErrorPage = false;
           } catch (loginError) {
-            console.error('Erreur lors du chargement de login.html:', loginError);
+            console.error('Erreur lors du chargement de html/login.html:', loginError);
             fallbackToErrorPage = true;
           }
         } else {

@@ -45,7 +45,7 @@ async function initAuth() {
         if (currentPath.includes('page=admin_') || currentPath.includes('page=emprunts') ||
             currentPath.includes('page=stocks') || currentPath.includes('page=modules') ||
             currentPath.includes('page=livraisons')) {
-          window.location.href = '?page=login_simple';
+          window.location.href = '?page=login';
         }
       }
     });

@@ -91,7 +91,7 @@ Parfait ! Voici une version améliorée de la section 2 de la checklist, optimis
     *   [ ] Créer `src/html/admin/users.html` (structure HTML de base pour la liste/gestion utilisateurs).
     *   [ ] Créer `src/js/admin/users.js` (logique JS pour la page admin utilisateurs).
 *   [ ] **Implémentation Flux Connexion (`login.html` / `auth.js`):**
-    *   [ ] Ajouter le bouton/mécanisme "Connexion avec Google" (appel SDK Firebase Auth `signInWithPopup` ou `signInWithRedirect`).
+    *   [ ] Ajouter le bouton/mécanisme "Connexion avec Google" (appel SDK Firebase Auth `signInWithPopup` ou          `       signInWithRedirect`).
     *   [ ] (Si Email/Pass activé) Implémenter le formulaire de connexion Email/Password (appel SDK `signInWithEmailAndPassword`).
     *   [ ] Gérer l'affichage des états (chargement, connecté, déconnecté) et la redirection après succès.
     *   [ ] Implémenter la gestion et l'affichage des erreurs d'authentification courantes.

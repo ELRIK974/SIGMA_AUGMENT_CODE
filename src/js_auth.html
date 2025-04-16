@@ -236,10 +236,9 @@ async function signOut() {
       // Rediriger vers la page de connexion après un court délai
       setTimeout(function() {
         console.log('Redirection vers la page de connexion...');
-        // Rediriger vers la page de connexion principale avec une URL simplifiée
-        // Utiliser directement l'URL de base sans paramètres
+        // Rediriger vers la page de connexion principale
         const baseUrl = window.location.href.split('?')[0];
-        window.location.href = baseUrl;
+        window.location.href = baseUrl + '?page=login';
       }, 1000);
 
       return Promise.resolve();
@@ -258,9 +257,9 @@ async function signOut() {
 
       // Rediriger quand même
       setTimeout(function() {
-        // Utiliser directement l'URL de base sans paramètres
+        // Rediriger vers la page de connexion
         const baseUrl = window.location.href.split('?')[0];
-        window.location.href = baseUrl;
+        window.location.href = baseUrl + '?page=login';
       }, 1000);
 
       return Promise.reject("Instance Auth non disponible");
@@ -280,9 +279,9 @@ async function signOut() {
         // Rediriger vers la page de connexion après un court délai
         setTimeout(function() {
           console.log('Redirection vers la page de connexion...');
-          // Utiliser directement l'URL de base sans paramètres
+          // Rediriger vers la page de connexion
           const baseUrl = window.location.href.split('?')[0];
-          window.location.href = baseUrl;
+          window.location.href = baseUrl + '?page=login';
         }, 1000);
       })
       .catch(error => {
@@ -297,9 +296,9 @@ async function signOut() {
 
         // Rediriger quand même
         setTimeout(function() {
-          // Utiliser directement l'URL de base sans paramètres
+          // Rediriger vers la page de connexion
           const baseUrl = window.location.href.split('?')[0];
-          window.location.href = baseUrl;
+          window.location.href = baseUrl + '?page=login';
         }, 1000);
 
         throw error;
@@ -309,8 +308,9 @@ async function signOut() {
 
     // Tenter une redirection directe en dernier recours
     try {
-      // Utiliser directement l'URL de base sans paramètres
-      window.location.href = window.location.href.split('?')[0];
+      // Rediriger vers la page de connexion
+      const baseUrl = window.location.href.split('?')[0];
+      window.location.href = baseUrl + '?page=login';
     } catch (e) {
       console.error('Impossible de rediriger après erreur:', e);
     }
