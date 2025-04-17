@@ -81,15 +81,16 @@
 
             // Ajouter l'événement de connexion Google
             document.getElementById('google-signin').addEventListener('click', function() {
+              // Appeler la fonction signInWithGoogle définie dans auth.js
               signInWithGoogle()
                 .then(() => {
-                  // La redirection sera gérée par onAuthStateChanged
+                  // Connexion réussie, la redirection est gérée par onAuthStateChanged
+                  // Pas besoin d'action spécifique ici.
                 })
                 .catch(error => {
-                  // Afficher l'erreur
-                  const errorElement = document.getElementById('login-error');
-                  errorElement.textContent = error.message || 'Erreur de connexion';
-                  errorElement.classList.remove('d-none');
+                  // L'erreur est déjà gérée et affichée par signInWithGoogle dans auth.js
+                  // On peut juste logguer ici si nécessaire, mais l'affichage est fait ailleurs.
+                  console.info('Tentative de connexion échouée (erreur gérée dans auth.js)', error.code);
                 });
             });
           })

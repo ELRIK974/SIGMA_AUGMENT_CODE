@@ -69,29 +69,50 @@
       loadingMsg.innerHTML = '<strong>Déconnexion en cours...</strong>';
       document.body.appendChild(loadingMsg);
 
-      if (typeof signOut === 'function') {
-        signOut()
+      // Utiliser firebaseUtils.signOut() au lieu de signOut()
+      if (typeof firebaseUtils !== 'undefined' && typeof firebaseUtils.signOut === 'function') {
+        firebaseUtils.signOut()
           .then(() => {
             console.log('Déconnexion réussie, redirection...');
             // La redirection est maintenant gérée dans la fonction signOut elle-même
+
+            // Supprimer le message de chargement après un court délai
+            setTimeout(function() {
+              loadingMsg.remove();
+            }, 2000);
           })
           .catch(error => {
             console.error('Erreur lors de la déconnexion:', error);
             // En cas d'erreur, forcer la redirection vers la page d'accueil
             console.log('Erreur lors de la déconnexion, redirection forcée...');
 
+            // Mettre à jour le message de chargement
+            loadingMsg.className = 'alert alert-danger fixed-top m-3';
+            loadingMsg.innerHTML = '<strong>Erreur lors de la déconnexion!</strong> Redirection en cours...';
+
             // Construire l'URL de base
             const baseUrl = window.location.href.split('?')[0];
             console.log('Redirection vers la page de connexion simple...');
 
-            // Rediriger vers la page de connexion simple
-            window.location.href = baseUrl + '?page=login_simple';
+            // Supprimer le message après un court délai
+            setTimeout(function() {
+              loadingMsg.remove();
+              // Rediriger vers la page de connexion simple
+              window.location.href = baseUrl + '?page=login_simple';
+            }, 2000);
           });
       } else {
-        console.error('Fonction signOut non disponible');
+        console.error('Fonction firebaseUtils.signOut non disponible');
+        // Mettre à jour le message de chargement
+        loadingMsg.className = 'alert alert-danger fixed-top m-3';
+        loadingMsg.innerHTML = '<strong>Erreur!</strong> Fonction de déconnexion non disponible. Redirection en cours...';
+
         // Rediriger vers la page de connexion simple même si la fonction n'est pas disponible
-        const baseUrl = window.location.href.split('?')[0];
-        window.location.href = baseUrl + '?page=login_simple';
+        setTimeout(function() {
+          loadingMsg.remove();
+          const baseUrl = window.location.href.split('?')[0];
+          window.location.href = baseUrl + '?page=login_simple';
+        }, 2000);
       }
     }
 

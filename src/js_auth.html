@@ -87,7 +87,7 @@ async function initAuth() {
     }
 
     // Sinon, continuer avec l'authentification Firebase normale
-    const auth = await getAuthInstance();
+    const auth = await firebaseUtils.getFirebaseAuth();
 
     if (!auth) {
       logError("Instance Auth non disponible dans initAuth");
@@ -157,7 +157,7 @@ async function signInWithGoogle() {
       return Promise.reject("Firebase n'est pas correctement initialisé");
     }
 
-    const auth = await getAuthInstance();
+    const auth = await firebaseUtils.getFirebaseAuth();
     console.log('Instance Auth récupérée:', !!auth);
 
     if (!auth) {
@@ -334,7 +334,7 @@ async function signOut() {
     }
 
     // Sinon, continuer avec la déconnexion Firebase normale
-    const auth = await getAuthInstance();
+    const auth = await firebaseUtils.getFirebaseAuth();
 
     if (!auth) {
       // Même en cas d'erreur, mettre à jour l'état local
@@ -407,35 +407,9 @@ async function signOut() {
   }
 }
 
-// Obtenir l'instance Firebase Functions
-async function getFunctionsInstance() {
-  try {
-    return await firebaseUtils.getFirebaseFunctions();
-  } catch (error) {
-    logError('Erreur lors de la récupération de l\'instance Firebase Functions', error);
-    return null;
-  }
-}
-
-// Obtenir l'instance Firestore
-async function getFirestoreInstance() {
-  try {
-    return await firebaseUtils.getFirestoreDb();
-  } catch (error) {
-    logError('Erreur lors de la récupération de l\'instance Firestore', error);
-    return null;
-  }
-}
-
-// Obtenir l'instance Auth
-async function getAuthInstance() {
-  try {
-    return await firebaseUtils.getFirebaseAuth();
-  } catch (error) {
-    logError('Erreur lors de la récupération de l\'instance Auth', error);
-    return null;
-  }
-}
+// Utiliser directement les fonctions de firebaseUtils
+// Les fonctions getFunctionsInstance, getFirestoreInstance et getAuthInstance ont été supprimées
+// pour éviter les duplications et utiliser directement firebaseUtils
 
 // Obtenir le rôle de l'utilisateur
 async function getUserRole(user) {
@@ -462,7 +436,7 @@ async function getUserRole(user) {
     }
 
     // Si pas de custom claims, essayer de récupérer depuis Firestore (compatibilité)
-    const db = getFirestoreInstance();
+    const db = await firebaseUtils.getFirestoreDb();
 
     if (!db) {
       logError("Instance Firestore non disponible dans getUserRole");
@@ -478,7 +452,7 @@ async function getUserRole(user) {
 
       // Appeler la Cloud Function pour migrer ce rôle vers custom claims
       try {
-        const functions = await getFunctionsInstance();
+        const functions = await firebaseUtils.getFirebaseFunctions();
         if (functions) {
           const getUserRoleFunction = functions.httpsCallable('getUserRole');
           await getUserRoleFunction({ uid: user.uid });
@@ -523,7 +497,7 @@ function hasRole(requiredRole) {
 async function checkRedirectResult() {
   try {
     console.log('Vérification du résultat de redirection');
-    const auth = await getAuthInstance();
+    const auth = await firebaseUtils.getFirebaseAuth();
 
     if (!auth) {
       console.error('Instance Auth non disponible dans checkRedirectResult');

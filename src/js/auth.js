@@ -56,6 +56,13 @@ async function initAuth() {
 
 // Connecter un utilisateur avec Google
 async function signInWithGoogle() {
+  // Masquer les erreurs précédentes
+  const errorElement = document.getElementById('login-error');
+  if (errorElement) {
+    errorElement.classList.add('d-none');
+    errorElement.textContent = ''; // Vider le message
+  }
+
   try {
     const auth = await getAuthInstance();
 
@@ -75,12 +82,49 @@ async function signInWithGoogle() {
       })
       .catch(error => {
         logError('Erreur de connexion avec Google', error);
-        showNotification('Erreur lors de la connexion: ' + error.message, 'error');
-        throw error;
+        const errorElement = document.getElementById('login-error');
+        let errorMessage = 'Une erreur inconnue est survenue lors de la connexion.';
+
+        switch (error.code) {
+          case 'auth/popup-closed-by-user':
+            errorMessage = 'Connexion annulée par l\'utilisateur.';
+            break;
+          case 'auth/cancelled-popup-request':
+          case 'auth/popup-blocked':
+            errorMessage = 'La fenêtre de connexion a été bloquée ou fermée. Veuillez réessayer.';
+            break;
+          case 'auth/network-request-failed':
+            errorMessage = 'Erreur réseau. Vérifiez votre connexion Internet.';
+            break;
+          case 'auth/user-disabled':
+            errorMessage = 'Ce compte utilisateur a été désactivé.';
+            break;
+          case 'auth/unauthorized-domain':
+            errorMessage = 'Ce domaine n\'est pas autorisé pour l\'authentification.';
+            break;
+          // Ajouter d'autres cas spécifiques si nécessaire
+          default:
+            errorMessage = `Erreur de connexion : ${error.message}`; // Message par défaut plus informatif
+        }
+
+        if (errorElement) {
+          errorElement.textContent = errorMessage;
+          errorElement.classList.remove('d-none');
+        } else {
+          // Fallback si l'élément n'est pas trouvé (peu probable sur login.html)
+          showNotification(errorMessage, 'error');
+        }
+
+        throw error; // Renvoyer l'erreur pour d'éventuels traitements supplémentaires
       });
   } catch (error) {
     logError('Erreur lors de l\'initialisation de l\'authentification pour la connexion', error);
-    return Promise.reject(error);
+    const errorElement = document.getElementById('login-error');
+     if (errorElement) {
+        errorElement.textContent = 'Erreur critique lors de la tentative de connexion. Contactez l\'administrateur.';
+        errorElement.classList.remove('d-none');
+     }
+    return Promise.reject(error); // Renvoyer l'erreur
   }
 }
 

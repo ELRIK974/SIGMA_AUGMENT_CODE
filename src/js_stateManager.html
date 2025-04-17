@@ -130,22 +130,16 @@ function updateAuthUI() {
   }
 
   // Mettre à jour l'affichage des sections de contenu
-  // La section de connexion a été supprimée, donc nous n'avons plus besoin de la gérer
+  // Simplifier l'interface en fonction de l'état d'authentification
 
   if (dashboardContent) {
     dashboardContent.style.display = isAuthenticated ? 'block' : 'none';
     console.log('Contenu du dashboard mis à jour:', dashboardContent.style.display);
   }
 
-  // Toujours masquer les liens de test et le message d'info, qu'importe l'état d'authentification
-  if (loginTestLinks) {
-    loginTestLinks.style.display = 'none';
-    console.log('Liens de test masqués');
-  }
-
-  if (authInfoMessage) {
-    authInfoMessage.style.display = 'none';
-    console.log('Message d\'info masqué');
+  // Mettre à jour la visibilité des éléments d'authentification
+  if (authStatusElement) {
+    authStatusElement.style.display = isAuthenticated ? 'block' : 'none';
   }
 
   // Mettre à jour les éléments de statut d'authentification
@@ -206,14 +200,14 @@ function updateAuthUI() {
         const loginButton = document.getElementById('login-button-main');
         if (loginButton) {
           loginButton.addEventListener('click', function() {
-            if (typeof signInWithGoogle === 'function') {
+            if (typeof firebaseUtils !== 'undefined' && typeof firebaseUtils.signInWithGoogle === 'function') {
               // Afficher un indicateur de chargement
               const loadingMsg = document.createElement('div');
               loadingMsg.className = 'alert alert-info fixed-top m-3';
               loadingMsg.innerHTML = '<strong>Connexion en cours...</strong>';
               document.body.appendChild(loadingMsg);
 
-              signInWithGoogle()
+              firebaseUtils.signInWithGoogle()
                 .then(() => {
                   console.log('Connexion réussie');
                   loadingMsg.className = 'alert alert-success fixed-top m-3';
@@ -235,7 +229,7 @@ function updateAuthUI() {
                   }, 5000);
                 });
             } else {
-              console.error('Fonction signInWithGoogle non disponible');
+              console.error('Fonction firebaseUtils.signInWithGoogle non disponible');
               alert('Fonction de connexion non disponible. Veuillez rafraîchir la page.');
             }
           });

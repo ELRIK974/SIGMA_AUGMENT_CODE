@@ -323,6 +323,119 @@ var firebaseUtils = (function () {
         }
     }
 
+    /**
+     * Signs in a user with Google authentication.
+     * @returns {Promise<firebase.auth.UserCredential>} A promise that resolves with the user credential.
+     */
+    async function signInWithGoogle() {
+        const auth = await getFirebaseAuth();
+
+        // Ajouter des logs de débogage
+        console.log('Tentative de connexion avec Google - firebaseUtils.signInWithGoogle');
+
+        // Vérifier si Firebase est initialisé
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            console.error('Firebase ou firebase.auth n\'est pas disponible');
+            return Promise.reject("Firebase n'est pas correctement initialisé");
+        }
+
+        // Créer le provider Google
+        console.log('Création du provider Google');
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        // Ajouter des scopes si nécessaire
+        provider.addScope('email');
+        provider.addScope('profile');
+
+        console.log('Appel de signInWithPopup');
+
+        // Vérifier si nous devons utiliser la redirection au lieu du popup
+        const urlParams = new URLSearchParams(window.location.search);
+        const useRedirect = urlParams.get('use_redirect') === '1';
+
+        if (useRedirect) {
+            console.log('Utilisation de signInWithRedirect au lieu de signInWithPopup');
+            return auth.signInWithRedirect(provider)
+                .then(() => {
+                    console.log('Redirection vers Google en cours...');
+                    // Cette promesse ne sera jamais résolue car la page sera redirigée
+                    return null;
+                });
+        } else {
+            // Méthode par défaut avec popup
+            return auth.signInWithPopup(provider)
+                .then(result => {
+                    console.log('Connexion réussie avec Google');
+                    if (typeof logInfo === 'function') {
+                        logInfo('Connexion réussie avec Google', {
+                            email: result.user.email,
+                            displayName: result.user.displayName
+                        });
+                    }
+                    return result;
+                })
+                .catch(error => {
+                    console.error('Erreur de connexion avec Google:', error);
+                    if (typeof logError === 'function') {
+                        logError('Erreur de connexion avec Google', error);
+                    }
+
+                    // Afficher une notification si la fonction est disponible
+                    if (typeof showNotification === 'function') {
+                        showNotification('Erreur lors de la connexion: ' + error.message, 'error');
+                    }
+
+                    // Afficher l'erreur dans l'élément #login-error si nous sommes sur la page de connexion
+                    const errorElement = document.getElementById('login-error');
+                    if (errorElement) {
+                        // Déterminer un message d'erreur adapté à l'utilisateur en fonction du code d'erreur
+                        let userMessage = 'Une erreur est survenue lors de la connexion. Veuillez réessayer.';
+
+                        // Personnaliser le message en fonction du code d'erreur
+                        if (error.code) {
+                            switch (error.code) {
+                                case 'auth/popup-closed-by-user':
+                                    userMessage = 'La fenêtre de connexion a été fermée avant la fin du processus. Veuillez réessayer.';
+                                    break;
+                                case 'auth/popup-blocked':
+                                    userMessage = 'La fenêtre de connexion a été bloquée par votre navigateur. Veuillez autoriser les popups pour ce site et réessayer.';
+                                    break;
+                                case 'auth/cancelled-popup-request':
+                                    userMessage = 'La demande de connexion a été annulée. Veuillez réessayer.';
+                                    break;
+                                case 'auth/network-request-failed':
+                                    userMessage = 'Problème de connexion réseau. Veuillez vérifier votre connexion internet et réessayer.';
+                                    break;
+                                case 'auth/user-disabled':
+                                    userMessage = 'Ce compte utilisateur a été désactivé. Veuillez contacter l\'administrateur.';
+                                    break;
+                                case 'auth/account-exists-with-different-credential':
+                                    userMessage = 'Un compte existe déjà avec cette adresse email mais avec une méthode de connexion différente.';
+                                    break;
+                                case 'auth/operation-not-allowed':
+                                    userMessage = 'La connexion avec Google n\'est pas activée pour cette application. Veuillez contacter l\'administrateur.';
+                                    break;
+                                case 'auth/timeout':
+                                    userMessage = 'La connexion a expiré. Veuillez réessayer.';
+                                    break;
+                                default:
+                                    // Utiliser le message d'erreur de Firebase si disponible, sinon message générique
+                                    userMessage = error.message || userMessage;
+                            }
+                        }
+
+                        // Mettre à jour le contenu de l'élément d'erreur
+                        errorElement.textContent = userMessage;
+
+                        // Rendre l'élément d'erreur visible
+                        errorElement.classList.remove('d-none');
+                    }
+
+                    throw error;
+                });
+        }
+    }
+
 
     /**
      * Tests Firebase initialization and logging to Cloud Logging.
@@ -422,6 +535,7 @@ var firebaseUtils = (function () {
         getCurrentUser,
         onAuthStateChanged,
         signOut,
+        signInWithGoogle, // Expose the signInWithGoogle function
         testInitialisation, // Expose the new test function
         // Expose initialization state for potential checks elsewhere
         isFirebaseInitialized: () => isInitialized

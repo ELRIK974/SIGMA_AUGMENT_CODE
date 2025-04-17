@@ -94,7 +94,7 @@ Parfait ! Voici une version améliorée de la section 2 de la checklist, optimis
     *   [ ] Ajouter le bouton/mécanisme "Connexion avec Google" (appel SDK Firebase Auth `signInWithPopup` ou          `       signInWithRedirect`).
     *   [ ] (Si Email/Pass activé) Implémenter le formulaire de connexion Email/Password (appel SDK `signInWithEmailAndPassword`).
     *   [ ] Gérer l'affichage des états (chargement, connecté, déconnecté) et la redirection après succès.
-    *   [ ] Implémenter la gestion et l'affichage des erreurs d'authentification courantes.
+    *   [x] Implémenter la gestion et l'affichage des erreurs d'authentification courantes.
     *   [ ] (Si Email/Pass activé) Implémenter le flux "Mot de passe oublié" (appel SDK `sendPasswordResetEmail`).
 *   [ ] **Implémentation UI Admin Utilisateurs (`admin/users.html` / `admin/users.js`):**
     *   [ ] Afficher la liste des utilisateurs depuis Firestore (si Option A) ou via une Cloud Function (si Option B).
@@ -918,6 +918,3 @@ Okay, la mise en place d'une CI/CD est une étape clé ! Voici une version amél
 ### 15.1 Gestion de la durée de vie du matériel
 ### 15.2 Gestion des fournisseurs
 ### 15.3 Gestion des événements et animations
-
-
-
